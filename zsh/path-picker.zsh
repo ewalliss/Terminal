@@ -130,5 +130,14 @@ _pp_widget() {
   [[ "$type" == 'D' ]] && _pp_widget
 }
 
+# ── 5. Auto-trigger on space after a nav command ─────────────────────────────
+# Wraps self-insert: after typing a space in a nav command context, open picker
+# immediately. Ctrl+F stays as a manual fallback for mid-word use.
+_pp_auto_trigger() {
+  zle .self-insert
+  [[ "$KEYS" == ' ' ]] && _pp_is_path_context && _pp_widget
+}
+
 zle -N _pp_widget
-bindkey '^F' _pp_widget   # Ctrl+F
+zle -N self-insert _pp_auto_trigger
+bindkey '^F' _pp_widget   # Ctrl+F — manual fallback
