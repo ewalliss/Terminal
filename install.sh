@@ -75,24 +75,8 @@ else
   print_ok "Starship already installed"
 fi
 
-# ── 3a. fzf (path picker) ─────────────────────────────────────────────────────
-if ! command -v fzf &>/dev/null; then
-  print_step "Installing fzf…"
-  brew install fzf
-else
-  print_ok "fzf already installed"
-fi
-
-# ── 3b. eza (path picker listing) ─────────────────────────────────────────────
-if ! command -v eza &>/dev/null; then
-  print_step "Installing eza…"
-  brew install eza
-else
-  print_ok "eza already installed"
-fi
-
-# ── 3c. JetBrainsMono Nerd Font ───────────────────────────────────────────────
-local _installed_fonts=( "$HOME/Library/Fonts"/JetBrainsMonoNerdFont*(N) /Library/Fonts/JetBrainsMonoNerdFont*(N) )  # (N) = null-glob, no error if unmatched
+# ── 3. JetBrainsMono Nerd Font ────────────────────────────────────────────────
+local _installed_fonts=( "$HOME/Library/Fonts"/JetBrainsMonoNerdFont*(N) /Library/Fonts/JetBrainsMonoNerdFont*(N) )
 if [[ ${#_installed_fonts} -gt 0 ]]; then
   print_ok "JetBrainsMono Nerd Font already installed"
 else
@@ -173,21 +157,6 @@ if [[ -f "$HOME/.config/fish/config.fish" ]] && \
   printf '\n# Starship prompt\nstarship init fish | source\n' >> "$HOME/.config/fish/config.fish"
   print_ok "  starship init → fish config"
 fi
-
-# ── 6b. Inject path-picker into zsh configs ───────────────────────────────────
-_inject_path_picker() {
-  local rcfile="$1"
-  [[ -f "$rcfile" ]] || return 0
-  [[ -w "$rcfile" ]] || { print_warn "  skipping $rcfile (not writable)"; return 0; }
-  if ! grep -q 'path-picker.zsh' "$rcfile"; then
-    printf '\n# Path picker (fzf Tab completion)\nsource "%s/zsh/path-picker.zsh"\n' "$SCRIPT_DIR" >> "$rcfile"
-    print_ok "  path-picker → $rcfile"
-  fi
-}
-
-print_step "Injecting path-picker…"
-_inject_path_picker "$HOME/.zshrc"
-_inject_path_picker "$HOME/.zprofile"
 
 # ── 7. iTerm2 color profiles ──────────────────────────────────────────────────
 print_step "Opening iTerm2 color profiles for import…"
