@@ -108,7 +108,7 @@ _pp_build_list() {
 
 # ── 4. ZLE widget ─────────────────────────────────────────────────────────────
 _pp_widget() {
-  _pp_is_path_context || { zle expand-or-complete; return; }
+  _pp_is_path_context || return
 
   local _pp_base_dir _pp_typed_dir _pp_query _pp_prefix
   _pp_parse_buffer
@@ -116,8 +116,7 @@ _pp_widget() {
   local list
   list=$(_pp_build_list "$_pp_base_dir" "$_pp_query")
 
-  # Nothing to show — fall back to standard completion
-  [[ -z "$list" ]] && { zle expand-or-complete; return; }
+  [[ -z "$list" ]] && return
 
   # Run fzf — read from /dev/tty so it works even with piped stdin
   local raw
@@ -160,4 +159,4 @@ _pp_widget() {
 }
 
 zle -N _pp_widget
-bindkey '^I' _pp_widget
+bindkey '^F' _pp_widget   # Ctrl+F — open path picker
