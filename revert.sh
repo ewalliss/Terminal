@@ -39,8 +39,6 @@ strip_starship_from() {
   local rcfile="$1"
   [[ -f "$rcfile" ]] || return 0
   if grep -q 'starship init\|starship init fish' "$rcfile" 2>/dev/null; then
-    # Remove every starship-related line we could have added, including blank
-    # lines immediately before the comment block (non-destructive: only our markers)
     sed -i '' \
       -e '/# Starship prompt/{N; /eval.*starship init/d; /starship init fish | source/d;}' \
       -e '/# Starship prompt/d' \
@@ -48,11 +46,21 @@ strip_starship_from() {
       -e '/eval "$(starship init bash)"/d' \
       -e '/starship init fish | source/d' \
       "$rcfile" 2>/dev/null
-    # Second pass catches duplicates if script was run multiple times
-    sed -i '' \
-      -e '/starship init/d' \
-      "$rcfile" 2>/dev/null
+    sed -i '' -e '/starship init/d' "$rcfile" 2>/dev/null
     print_ok "  stripped starship init from $rcfile"
+  fi
+}
+
+# ── Helper: strip path-picker source line from any file ───────────────────────
+strip_path_picker_from() {
+  local rcfile="$1"
+  [[ -f "$rcfile" ]] || return 0
+  if grep -q 'path-picker.zsh' "$rcfile" 2>/dev/null; then
+    sed -i '' \
+      -e '/# Path picker (fzf Tab completion)/d' \
+      -e '/path-picker\.zsh/d' \
+      "$rcfile" 2>/dev/null
+    print_ok "  stripped path-picker from $rcfile"
   fi
 }
 
@@ -119,6 +127,7 @@ _revert_shell_file() {
   else
     # No valid backup — strip only the lines we added
     strip_starship_from "$rcfile"
+    strip_path_picker_from "$rcfile"
     if [[ ! -f "$rcfile" ]]; then
       print_ok "  ~/$filename did not exist — nothing to revert"
     fi
