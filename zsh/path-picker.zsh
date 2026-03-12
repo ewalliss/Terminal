@@ -7,14 +7,14 @@
 # ── Guard: fzf must be available ──────────────────────────────────────────────
 (( ${+commands[fzf]} )) || return
 
-# ── Constants ─────────────────────────────────────────────────────────────────
-typeset -ra _PP_NAV_CMDS=(cd ls cat vim nvim nano less more cp mv rm open code)
-typeset -r  _PP_ICON_FOLDER='󰉋'
-typeset -r  _PP_ICON_FILE='󰈙'
-typeset -r  _PP_ICON_OTHER='󰋇'
-
-# fzf Catppuccin Mocha palette
-typeset -r _PP_FZF_COLORS='bg+:#313244,fg+:#cdd6f4,hl+:#cba6f7,border:#45475a,label:#cba6f7,pointer:#cba6f7,header:italic:#6c7086'
+# ── Constants (guarded so re-sourcing .zshrc doesn't error) ───────────────────
+if (( ! ${+_PP_NAV_CMDS} )); then
+  typeset -ra _PP_NAV_CMDS=(cd ls cat vim nvim nano less more cp mv rm open code)
+  typeset -r  _PP_ICON_FOLDER='󰉋'
+  typeset -r  _PP_ICON_FILE='󰈙'
+  typeset -r  _PP_ICON_OTHER='󰋇'
+  typeset -r  _PP_FZF_COLORS='bg+:#313244,fg+:#cdd6f4,hl+:#cba6f7,border:#45475a,label:#cba6f7,pointer:#cba6f7,header:italic:#6c7086'
+fi
 
 # ── 1. Context detection ──────────────────────────────────────────────────────
 # Returns 0 (trigger) if: first word is a nav cmd, OR last word is a path,
