@@ -4,6 +4,8 @@
 
 "$schema" = 'https://starship.rs/config-schema.json'
 
+command_timeout = 2000
+
 # ── Segment order ──────────────────────────────────────────────────────────────
 # mauve: os · user   pink: 󰉋 dir   blue: branch · status
 # green: python   teal: node   peach/sky/yellow/…: rest
