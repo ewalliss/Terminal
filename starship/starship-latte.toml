@@ -1,0 +1,340 @@
+# Catppuccin Latte – Starship prompt (Style A: Powerline)
+# Requires: JetBrainsMono Nerd Font
+# All icons: Nerd Fonts Material Design (nf-md-*) set
+
+"$schema" = 'https://starship.rs/config-schema.json'
+
+format = """
+[](mauve)\
+$os\
+$username\
+[](fg:mauve bg:pink)\
+$directory\
+[](fg:pink bg:blue)\
+$git_branch\
+$git_status\
+[](fg:blue bg:green)\
+$python\
+[](fg:green bg:teal)\
+$nodejs\
+[](fg:teal bg:surface0)\
+$rust\
+$golang\
+$java\
+$ruby\
+$php\
+$c\
+$swift\
+$kotlin\
+$lua\
+$rlang\
+$julia\
+$elixir\
+$erlang\
+$scala\
+$dart\
+$haskell\
+$nim\
+$zig\
+$docker_context\
+$kubernetes\
+$aws\
+$gcloud\
+$azure\
+$terraform\
+$conda\
+$package\
+[](fg:surface0)\
+$fill\
+$cmd_duration\
+$time\
+$line_break\
+$character"""
+
+palette = 'catppuccin_latte'
+
+[palettes.catppuccin_latte]
+rosewater = "#dc8a78"
+flamingo  = "#dd7878"
+pink      = "#ea76cb"
+mauve     = "#8839ef"
+red       = "#d20f39"
+maroon    = "#e64553"
+peach     = "#fe640b"
+yellow    = "#df8e1d"
+green     = "#40a02b"
+teal      = "#179299"
+sky       = "#04a5e5"
+sapphire  = "#209fb5"
+blue      = "#1e66f5"
+lavender  = "#7287fd"
+text      = "#4c4f69"
+subtext1  = "#5c5f77"
+subtext0  = "#6c6f85"
+overlay2  = "#7c7f93"
+overlay1  = "#8c8fa1"
+overlay0  = "#9ca0b0"
+surface2  = "#acb0be"
+surface1  = "#bcc0cc"
+surface0  = "#ccd0da"
+base      = "#eff1f5"
+mantle    = "#e6e9ef"
+crust     = "#dce0e8"
+
+# ── OS ─────────────────────────────────────────────────────────────────────────
+[os]
+disabled = false
+style    = "bg:mauve fg:base"
+format   = '[$symbol]($style)'
+
+[os.symbols]
+Macos   = "  "   # nf-md-apple
+Linux   = "  "   # nf-md-linux
+Windows = "  "   # nf-md-microsoft_windows
+Ubuntu  = "  "   # nf-md-ubuntu
+Debian  = "  "   # nf-md-debian
+Arch    = "  "   # nf-md-arch
+Fedora  = "  "   # nf-md-fedora
+Alpine  = "  "   # nf-md-alpine
+Android = "  "   # nf-md-android
+
+# ── Username ───────────────────────────────────────────────────────────────────
+[username]
+show_always = true
+style_user  = "bg:mauve fg:base"
+style_root  = "bg:red fg:base"
+format      = '[ $user ]($style)'
+
+# ── Directory ──────────────────────────────────────────────────────────────────
+[directory]
+style             = "fg:base bg:pink"
+format            = '[ 󰉋 $path ]($style)'   # nf-md-folder
+read_only         = " 󰌾"                     # nf-md-lock
+truncation_length = 3
+truncation_symbol = "…/"
+
+[directory.substitutions]
+"~"         = "~"
+"Documents" = "󰈙 Documents"
+"Downloads" = "󰇚 Downloads"
+"Music"     = "󰝚 Music"
+"Pictures"  = "󰋩 Pictures"
+"Desktop"   = "󰇄 Desktop"
+"Projects"  = "󰏗 Projects"
+"Developer" = "󰏗 Developer"
+
+# ── Git ────────────────────────────────────────────────────────────────────────
+[git_branch]
+symbol = "󰘬 "    # nf-md-source_branch
+style  = "bg:blue fg:base"
+format = '[[ $symbol$branch ](fg:base bg:blue)]($style)'
+
+[git_status]
+style       = "bg:blue fg:base"
+format      = '[[($all_status$ahead_behind )](fg:base bg:blue)]($style)'
+modified    = "󰏭 "
+staged      = "󰐕 "
+untracked   = "󰋗 "
+deleted     = "󰍶 "
+renamed     = "󰁔 "
+conflicted  = "󰀨 "
+ahead       = "󰜷"
+behind      = "󰜮"
+diverged    = "󰹹 "
+stashed     = "󰏗 "
+
+# ── Python ─────────────────────────────────────────────────────────────────────
+[python]
+symbol            = "󰌠 "
+style             = "bg:green fg:base"
+format            = '[[ $symbol$version(\($virtualenv\)) ](fg:base bg:green)]($style)'
+detect_extensions = ["py"]
+detect_files      = [".python-version", "Pipfile", "pyproject.toml", "setup.py", "requirements.txt", "tox.ini"]
+
+# ── Node.js ────────────────────────────────────────────────────────────────────
+[nodejs]
+symbol       = "󰎙 "
+style        = "bg:teal fg:base"
+format       = '[[ $symbol$version ](fg:base bg:teal)]($style)'
+detect_files = ["package.json", ".nvmrc", ".node-version"]
+
+# ── Rust ───────────────────────────────────────────────────────────────────────
+[rust]
+symbol = "󱘗 "
+style  = "bg:surface0 fg:peach"
+format = '[[ $symbol$version ](fg:peach bg:surface0)]($style)'
+
+# ── Go ─────────────────────────────────────────────────────────────────────────
+[golang]
+symbol = "󰟓 "
+style  = "bg:surface0 fg:sky"
+format = '[[ $symbol$version ](fg:sky bg:surface0)]($style)'
+
+# ── Java ───────────────────────────────────────────────────────────────────────
+[java]
+symbol = "󰬷 "
+style  = "bg:surface0 fg:yellow"
+format = '[[ $symbol$version ](fg:yellow bg:surface0)]($style)'
+
+# ── Ruby ───────────────────────────────────────────────────────────────────────
+[ruby]
+symbol = "󰴭 "
+style  = "bg:surface0 fg:red"
+format = '[[ $symbol$version ](fg:red bg:surface0)]($style)'
+
+# ── PHP ────────────────────────────────────────────────────────────────────────
+[php]
+symbol = "󰌟 "
+style  = "bg:surface0 fg:mauve"
+format = '[[ $symbol$version ](fg:mauve bg:surface0)]($style)'
+
+# ── C / C++ ────────────────────────────────────────────────────────────────────
+[c]
+symbol = "󰙱 "
+style  = "bg:surface0 fg:sapphire"
+format = '[[ $symbol$version ](fg:sapphire bg:surface0)]($style)'
+
+# ── Swift ──────────────────────────────────────────────────────────────────────
+[swift]
+symbol = "󰛥 "
+style  = "bg:surface0 fg:peach"
+format = '[[ $symbol$version ](fg:peach bg:surface0)]($style)'
+
+# ── Kotlin ─────────────────────────────────────────────────────────────────────
+[kotlin]
+symbol = "󱈙 "
+style  = "bg:surface0 fg:mauve"
+format = '[[ $symbol$version ](fg:mauve bg:surface0)]($style)'
+
+# ── Lua ────────────────────────────────────────────────────────────────────────
+[lua]
+symbol = "󰢱 "
+style  = "bg:surface0 fg:blue"
+format = '[[ $symbol$version ](fg:blue bg:surface0)]($style)'
+
+# ── R ──────────────────────────────────────────────────────────────────────────
+[rlang]
+symbol = "󰟔 "
+style  = "bg:surface0 fg:blue"
+format = '[[ $symbol$version ](fg:blue bg:surface0)]($style)'
+
+# ── Julia ──────────────────────────────────────────────────────────────────────
+[julia]
+symbol = " "
+style  = "bg:surface0 fg:mauve"
+format = '[[ $symbol$version ](fg:mauve bg:surface0)]($style)'
+
+# ── Elixir ─────────────────────────────────────────────────────────────────────
+[elixir]
+symbol = " "
+style  = "bg:surface0 fg:mauve"
+format = '[[ $symbol$version ](fg:mauve bg:surface0)]($style)'
+
+# ── Erlang ─────────────────────────────────────────────────────────────────────
+[erlang]
+symbol = " "
+style  = "bg:surface0 fg:red"
+format = '[[ $symbol$version ](fg:red bg:surface0)]($style)'
+
+# ── Scala ──────────────────────────────────────────────────────────────────────
+[scala]
+symbol = " "
+style  = "bg:surface0 fg:red"
+format = '[[ $symbol$version ](fg:red bg:surface0)]($style)'
+
+# ── Dart ───────────────────────────────────────────────────────────────────────
+[dart]
+symbol = " "
+style  = "bg:surface0 fg:blue"
+format = '[[ $symbol$version ](fg:blue bg:surface0)]($style)'
+
+# ── Haskell ────────────────────────────────────────────────────────────────────
+[haskell]
+symbol = "󰲒 "
+style  = "bg:surface0 fg:mauve"
+format = '[[ $symbol$version ](fg:mauve bg:surface0)]($style)'
+
+# ── Nim ────────────────────────────────────────────────────────────────────────
+[nim]
+symbol = "󰆥 "
+style  = "bg:surface0 fg:yellow"
+format = '[[ $symbol$version ](fg:yellow bg:surface0)]($style)'
+
+# ── Zig ────────────────────────────────────────────────────────────────────────
+[zig]
+symbol = " "
+style  = "bg:surface0 fg:peach"
+format = '[[ $symbol$version ](fg:peach bg:surface0)]($style)'
+
+# ── Docker ─────────────────────────────────────────────────────────────────────
+[docker_context]
+symbol = "󰡨 "
+style  = "bg:surface0 fg:blue"
+format = '[[ $symbol$context ](fg:blue bg:surface0)]($style)'
+
+# ── Kubernetes ─────────────────────────────────────────────────────────────────
+[kubernetes]
+disabled = false
+symbol   = "󱃾 "
+style    = "bg:surface0 fg:blue"
+format   = '[[ $symbol$context(\[$namespace\]) ](fg:blue bg:surface0)]($style)'
+
+# ── AWS ────────────────────────────────────────────────────────────────────────
+[aws]
+symbol = "󰸏 "
+style  = "bg:surface0 fg:peach"
+format = '[[ $symbol$profile(\[$region\]) ](fg:peach bg:surface0)]($style)'
+
+# ── Google Cloud ───────────────────────────────────────────────────────────────
+[gcloud]
+symbol = "󱇶 "
+style  = "bg:surface0 fg:blue"
+format = '[[ $symbol$account(@$domain)(\[$region\]) ](fg:blue bg:surface0)]($style)'
+
+# ── Azure ──────────────────────────────────────────────────────────────────────
+[azure]
+disabled = false
+symbol   = "󰠅 "
+style    = "bg:surface0 fg:blue"
+format   = '[[ $symbol$subscription ](fg:blue bg:surface0)]($style)'
+
+# ── Terraform ──────────────────────────────────────────────────────────────────
+[terraform]
+symbol = "󱁢 "
+style  = "bg:surface0 fg:mauve"
+format = '[[ $symbol$workspace ](fg:mauve bg:surface0)]($style)'
+
+# ── Conda ──────────────────────────────────────────────────────────────────────
+[conda]
+symbol = "󰏗 "
+style  = "bg:surface0 fg:green"
+format = '[[ $symbol$environment ](fg:green bg:surface0)]($style)'
+
+# ── Package version ────────────────────────────────────────────────────────────
+[package]
+symbol   = "󰏗 "
+style    = "bg:surface0 fg:peach"
+format   = '[[ $symbol$version ](fg:peach bg:surface0)]($style)'
+disabled = false
+
+# ── Right side ─────────────────────────────────────────────────────────────────
+[fill]
+symbol = " "
+style  = "fg:surface0"
+
+[cmd_duration]
+min_time = 500
+style    = "fg:yellow"
+format   = '[󱎫 $duration ]($style)'
+
+[time]
+disabled    = false
+time_format = "%H:%M"
+style       = "fg:subtext1"
+format      = '[󰥔 $time ]($style)'
+
+# ── Prompt character ───────────────────────────────────────────────────────────
+[character]
+success_symbol = '[❯](bold green)'
+error_symbol   = '[❯](bold red)'
+vimcmd_symbol  = '[❮](bold mauve)'

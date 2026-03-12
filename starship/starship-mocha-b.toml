@@ -1,0 +1,337 @@
+# Catppuccin Mocha – Starship prompt (Style B: Text-only, no background)
+# Requires: JetBrainsMono Nerd Font
+# All icons: Nerd Fonts Material Design (nf-md-*) set
+
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# ── Segment order ──────────────────────────────────────────────────────────────
+# mauve: os · user   pink: 󰉋 dir   blue: branch · status
+# green: python   teal: node   peach/sky/yellow/…: rest
+# right: ········  cmd_duration  time
+format = """
+$os\
+$username\
+$directory\
+$git_branch\
+$git_status\
+$python\
+$nodejs\
+$rust\
+$golang\
+$java\
+$ruby\
+$php\
+$c\
+$swift\
+$kotlin\
+$lua\
+$rlang\
+$julia\
+$elixir\
+$erlang\
+$scala\
+$dart\
+$haskell\
+$nim\
+$zig\
+$docker_context\
+$kubernetes\
+$aws\
+$gcloud\
+$azure\
+$terraform\
+$conda\
+$package\
+$fill\
+$cmd_duration\
+$time\
+$line_break\
+$character"""
+
+palette = 'catppuccin_mocha'
+
+[palettes.catppuccin_mocha]
+rosewater = "#f5e0dc"
+flamingo  = "#f2cdcd"
+pink      = "#f5c2e7"
+mauve     = "#cba6f7"
+red       = "#f38ba8"
+maroon    = "#eba0ac"
+peach     = "#fab387"
+yellow    = "#f9e2af"
+green     = "#a6e3a1"
+teal      = "#94e2d5"
+sky       = "#89dceb"
+sapphire  = "#74c7ec"
+blue      = "#89b4fa"
+lavender  = "#b4befe"
+text      = "#cdd6f4"
+subtext1  = "#bac2de"
+subtext0  = "#a6adc8"
+overlay2  = "#9399b2"
+overlay1  = "#7f849c"
+overlay0  = "#6c7086"
+surface2  = "#585b70"
+surface1  = "#45475a"
+surface0  = "#313244"
+base      = "#1e1e2e"
+mantle    = "#181825"
+crust     = "#11111b"
+
+# ── OS ─────────────────────────────────────────────────────────────────────────
+[os]
+disabled = false
+style    = "fg:mauve"
+format   = '[$symbol]($style)'
+
+[os.symbols]
+Macos   = "  "   # nf-md-apple
+Linux   = "  "   # nf-md-linux
+Windows = "  "   # nf-md-microsoft_windows
+Ubuntu  = "  "   # nf-md-ubuntu
+Debian  = "  "   # nf-md-debian
+Arch    = "  "   # nf-md-arch
+Fedora  = "  "   # nf-md-fedora
+Alpine  = "  "   # nf-md-alpine
+Android = "  "   # nf-md-android
+
+# ── Username ───────────────────────────────────────────────────────────────────
+[username]
+show_always = true
+style_user  = "fg:mauve"
+style_root  = "fg:red"
+format      = '[ $user ]($style)'
+
+# ── Directory ──────────────────────────────────────────────────────────────────
+[directory]
+style             = "fg:pink"
+format            = '[ 󰉋 $path ]($style)'   # nf-md-folder
+read_only         = " 󰌾"                     # nf-md-lock
+truncation_length = 3
+truncation_symbol = "…/"
+
+[directory.substitutions]
+"~"         = "~"
+"Documents" = "󰈙 Documents"
+"Downloads" = "󰇚 Downloads"
+"Music"     = "󰝚 Music"
+"Pictures"  = "󰋩 Pictures"
+"Desktop"   = "󰇄 Desktop"
+"Projects"  = "󰏗 Projects"
+"Developer" = "󰏗 Developer"
+
+# ── Git ────────────────────────────────────────────────────────────────────────
+[git_branch]
+symbol = "󰘬 "    # nf-md-source_branch
+style  = "fg:blue"
+format = '[[ $symbol$branch ](fg:blue)]($style)'
+
+[git_status]
+style       = "fg:blue"
+format      = '[[($all_status$ahead_behind )](fg:blue)]($style)'
+modified    = "󰏭 "    # nf-md-pencil
+staged      = "󰐕 "    # nf-md-plus_circle
+untracked   = "󰋗 "    # nf-md-help_circle
+deleted     = "󰍶 "    # nf-md-minus_circle
+renamed     = "󰁔 "    # nf-md-arrow_right
+conflicted  = "󰀨 "    # nf-md-alert
+ahead       = "󰜷"     # nf-md-arrow_up_bold
+behind      = "󰜮"     # nf-md-arrow_down_bold
+diverged    = "󰹹 "    # nf-md-arrow_split
+stashed     = "󰏗 "    # nf-md-package_variant
+
+# ── Python ─────────────────────────────────────────────────────────────────────
+[python]
+symbol            = "󰌠 "    # nf-md-language_python
+style             = "fg:green"
+format            = '[[ $symbol$version(\($virtualenv\)) ](fg:green)]($style)'
+detect_extensions = ["py"]
+detect_files      = [".python-version", "Pipfile", "pyproject.toml", "setup.py", "requirements.txt", "tox.ini"]
+
+# ── Node.js ────────────────────────────────────────────────────────────────────
+[nodejs]
+symbol       = "󰎙 "    # nf-md-nodejs
+style        = "fg:teal"
+format       = '[[ $symbol$version ](fg:teal)]($style)'
+detect_files = ["package.json", ".nvmrc", ".node-version"]
+
+# ── Rust ───────────────────────────────────────────────────────────────────────
+[rust]
+symbol = "󱘗 "    # nf-md-language_rust
+style  = "fg:peach"
+format = '[[ $symbol$version ](fg:peach)]($style)'
+
+# ── Go ─────────────────────────────────────────────────────────────────────────
+[golang]
+symbol = "󰟓 "    # nf-md-language_go
+style  = "fg:sky"
+format = '[[ $symbol$version ](fg:sky)]($style)'
+
+# ── Java ───────────────────────────────────────────────────────────────────────
+[java]
+symbol = "󰬷 "    # nf-md-language_java
+style  = "fg:yellow"
+format = '[[ $symbol$version ](fg:yellow)]($style)'
+
+# ── Ruby ───────────────────────────────────────────────────────────────────────
+[ruby]
+symbol = "󰴭 "    # nf-md-language_ruby
+style  = "fg:red"
+format = '[[ $symbol$version ](fg:red)]($style)'
+
+# ── PHP ────────────────────────────────────────────────────────────────────────
+[php]
+symbol = "󰌟 "    # nf-md-language_php
+style  = "fg:mauve"
+format = '[[ $symbol$version ](fg:mauve)]($style)'
+
+# ── C / C++ ────────────────────────────────────────────────────────────────────
+[c]
+symbol = "󰙱 "    # nf-md-language_c
+style  = "fg:sapphire"
+format = '[[ $symbol$version ](fg:sapphire)]($style)'
+
+# ── Swift ──────────────────────────────────────────────────────────────────────
+[swift]
+symbol = "󰛥 "    # nf-md-language_swift
+style  = "fg:peach"
+format = '[[ $symbol$version ](fg:peach)]($style)'
+
+# ── Kotlin ─────────────────────────────────────────────────────────────────────
+[kotlin]
+symbol = "󱈙 "    # nf-md-language_kotlin
+style  = "fg:mauve"
+format = '[[ $symbol$version ](fg:mauve)]($style)'
+
+# ── Lua ────────────────────────────────────────────────────────────────────────
+[lua]
+symbol = "󰢱 "    # nf-md-language_lua
+style  = "fg:blue"
+format = '[[ $symbol$version ](fg:blue)]($style)'
+
+# ── R ──────────────────────────────────────────────────────────────────────────
+[rlang]
+symbol = "󰟔 "    # nf-md-language_r
+style  = "fg:blue"
+format = '[[ $symbol$version ](fg:blue)]($style)'
+
+# ── Julia ──────────────────────────────────────────────────────────────────────
+[julia]
+symbol = " "    # nf-md-julia
+style  = "fg:mauve"
+format = '[[ $symbol$version ](fg:mauve)]($style)'
+
+# ── Elixir ─────────────────────────────────────────────────────────────────────
+[elixir]
+symbol = " "    # nf-dev-elixir
+style  = "fg:mauve"
+format = '[[ $symbol$version ](fg:mauve)]($style)'
+
+# ── Erlang ─────────────────────────────────────────────────────────────────────
+[erlang]
+symbol = " "    # nf-dev-erlang
+style  = "fg:red"
+format = '[[ $symbol$version ](fg:red)]($style)'
+
+# ── Scala ──────────────────────────────────────────────────────────────────────
+[scala]
+symbol = " "    # nf-dev-scala
+style  = "fg:red"
+format = '[[ $symbol$version ](fg:red)]($style)'
+
+# ── Dart ───────────────────────────────────────────────────────────────────────
+[dart]
+symbol = " "    # nf-dev-dart
+style  = "fg:blue"
+format = '[[ $symbol$version ](fg:blue)]($style)'
+
+# ── Haskell ────────────────────────────────────────────────────────────────────
+[haskell]
+symbol = "󰲒 "    # nf-md-language_haskell
+style  = "fg:mauve"
+format = '[[ $symbol$version ](fg:mauve)]($style)'
+
+# ── Nim ────────────────────────────────────────────────────────────────────────
+[nim]
+symbol = "󰆥 "    # nf-md-crown
+style  = "fg:yellow"
+format = '[[ $symbol$version ](fg:yellow)]($style)'
+
+# ── Zig ────────────────────────────────────────────────────────────────────────
+[zig]
+symbol = " "    # nf-dev-zig
+style  = "fg:peach"
+format = '[[ $symbol$version ](fg:peach)]($style)'
+
+# ── Docker ─────────────────────────────────────────────────────────────────────
+[docker_context]
+symbol = "󰡨 "    # nf-md-docker
+style  = "fg:blue"
+format = '[[ $symbol$context ](fg:blue)]($style)'
+
+# ── Kubernetes ─────────────────────────────────────────────────────────────────
+[kubernetes]
+disabled = false
+symbol   = "󱃾 "    # nf-md-kubernetes
+style    = "fg:blue"
+format   = '[[ $symbol$context(\[$namespace\]) ](fg:blue)]($style)'
+
+# ── AWS ────────────────────────────────────────────────────────────────────────
+[aws]
+symbol = "󰸏 "    # nf-md-aws
+style  = "fg:peach"
+format = '[[ $symbol$profile(\[$region\]) ](fg:peach)]($style)'
+
+# ── Google Cloud ───────────────────────────────────────────────────────────────
+[gcloud]
+symbol = "󱇶 "    # nf-md-google_cloud
+style  = "fg:blue"
+format = '[[ $symbol$account(@$domain)(\[$region\]) ](fg:blue)]($style)'
+
+# ── Azure ──────────────────────────────────────────────────────────────────────
+[azure]
+disabled = false
+symbol   = "󰠅 "    # nf-md-microsoft_azure
+style    = "fg:blue"
+format   = '[[ $symbol$subscription ](fg:blue)]($style)'
+
+# ── Terraform ──────────────────────────────────────────────────────────────────
+[terraform]
+symbol = "󱁢 "    # nf-md-terraform
+style  = "fg:mauve"
+format = '[[ $symbol$workspace ](fg:mauve)]($style)'
+
+# ── Conda ──────────────────────────────────────────────────────────────────────
+[conda]
+symbol = "󰏗 "    # nf-md-package_variant
+style  = "fg:green"
+format = '[[ $symbol$environment ](fg:green)]($style)'
+
+# ── Package version ────────────────────────────────────────────────────────────
+[package]
+symbol   = "󰏗 "    # nf-md-package_variant_closed
+style    = "fg:peach"
+format   = '[[ $symbol$version ](fg:peach)]($style)'
+disabled = false
+
+# ── Right side ─────────────────────────────────────────────────────────────────
+[fill]
+symbol = " "
+style  = "fg:surface0"
+
+[cmd_duration]
+min_time = 500
+style    = "fg:yellow"
+format   = '[󱎫 $duration ]($style)'    # nf-md-timer
+
+[time]
+disabled    = false
+time_format = "%H:%M"
+style       = "fg:subtext1"
+format      = '[󰥔 $time ]($style)'    # nf-md-clock_outline
+
+# ── Prompt character ───────────────────────────────────────────────────────────
+[character]
+success_symbol = '[❯](bold green)'
+error_symbol   = '[❯](bold red)'
+vimcmd_symbol  = '[❮](bold mauve)'
