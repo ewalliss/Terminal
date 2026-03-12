@@ -7,7 +7,7 @@
 # ── Segment order ──────────────────────────────────────────────────────────────
 # mauve: os · user   pink: 󰉋 dir   blue: branch · status
 # green: python   teal: node   peach/sky/yellow/…: rest
-# right: ········  cmd_duration  time
+# right_format renders independently — works at any terminal width
 format = """
 $os\
 $username\
@@ -42,11 +42,10 @@ $azure\
 $terraform\
 $conda\
 $package\
-$fill\
-$cmd_duration\
-$time\
 $line_break\
 $character"""
+
+right_format = "$cmd_duration$time"
 
 palette = 'catppuccin_mocha'
 
@@ -315,9 +314,6 @@ format   = '[[ $symbol$version ](fg:peach)]($style)'
 disabled = false
 
 # ── Right side ─────────────────────────────────────────────────────────────────
-[fill]
-symbol = " "
-style  = "fg:surface0"
 
 [cmd_duration]
 min_time = 500

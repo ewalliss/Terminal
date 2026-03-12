@@ -45,11 +45,10 @@ $terraform\
 $conda\
 $package\
 [](fg:surface0)\
-$fill\
-$cmd_duration\
-$time\
 $line_break\
 $character"""
+
+right_format = "$cmd_duration$time"
 
 palette = 'catppuccin_latte'
 
@@ -318,9 +317,6 @@ format   = '[[ $symbol$version ](fg:peach bg:surface0)]($style)'
 disabled = false
 
 # ── Right side ─────────────────────────────────────────────────────────────────
-[fill]
-symbol = " "
-style  = "fg:surface0"
 
 [cmd_duration]
 min_time = 500
