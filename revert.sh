@@ -9,10 +9,24 @@ setopt NO_ERR_EXIT 2>/dev/null; set +e
 
 SCRIPT_DIR="${0:A:h}"
 BACKUP_DIR="$SCRIPT_DIR/backup"
-MANIFEST="$BACKUP_DIR/manifest.txt"
 STARSHIP_CONFIG="$HOME/.config/starship.toml"
 TOGGLE_SCRIPT="$HOME/.local/bin/toggle-starship-theme"
 ITERM2_PLIST="$HOME/Library/Preferences/com.googlecode.iterm2.plist"
+
+# ── Find and extract latest snapshot ─────────────────────────────────────────
+local _snaps=( "$BACKUP_DIR"/snapshot-*.tar.gz(NOm) )
+_SNAP_ARCHIVE="${_snaps[1]}"
+SNAP_TMP=""
+_cleanup_snap() { [[ -n "$SNAP_TMP" ]] && rm -rf "$SNAP_TMP"; }
+trap _cleanup_snap EXIT
+
+if [[ -n "$_SNAP_ARCHIVE" && -f "$_SNAP_ARCHIVE" ]]; then
+  SNAP_TMP=$(mktemp -d /tmp/term-revert.XXXXXX)
+  tar -xzf "$_SNAP_ARCHIVE" -C "$SNAP_TMP" --strip-components=1 2>/dev/null
+  RESTORE_DIR="$SNAP_TMP"
+else
+  RESTORE_DIR="$BACKUP_DIR"
+fi
 
 print_step() { print -P "%F{141}===>%f $1"; }
 print_ok()   { print -P "%F{114} $1%f"; }
@@ -24,8 +38,7 @@ note_error() { ERRORS+=("$1"); print_err "$1"; }
 
 # ── Helper: read a value from manifest ───────────────────────────────────────
 manifest_get() {
-  # manifest_get KEY → prints value, empty string if not found
-  [[ -f "$MANIFEST" ]] && grep "^$1=" "$MANIFEST" | cut -d= -f2- || echo ""
+  [[ -f "$RESTORE_DIR/manifest.txt" ]] && grep "^$1=" "$RESTORE_DIR/manifest.txt" | cut -d= -f2- || echo ""
 }
 
 # ── Helper: validate a backup file ───────────────────────────────────────────
@@ -57,9 +70,11 @@ strip_starship_from() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-print_step "Reading install manifest…"
-if [[ ! -f "$MANIFEST" ]]; then
-  print_warn "No manifest found at $MANIFEST"
+print_step "Reading install snapshot…"
+if [[ -n "$_SNAP_ARCHIVE" ]]; then
+  print_ok "Snapshot: $(basename "$_SNAP_ARCHIVE")"
+else
+  print_warn "No snapshot found in $BACKUP_DIR"
   print_warn "install.sh may not have been run, or backup/ was deleted."
   print_warn "Proceeding with best-effort revert (will NOT uninstall pre-existing tools)."
 fi
@@ -74,8 +89,8 @@ ITERM2_STATE=$(manifest_get "iterm2_plist")       # "existed" | "none" | ""
 # ─────────────────────────────────────────────────────────────────────────────
 print_step "Reverting starship config…"
 
-if backup_valid "$BACKUP_DIR/starship.toml.bak"; then
-  cp "$BACKUP_DIR/starship.toml.bak" "$STARSHIP_CONFIG" \
+if backup_valid "$RESTORE_DIR/starship.toml"; then
+  cp "$RESTORE_DIR/starship.toml" "$STARSHIP_CONFIG" \
     && print_ok "Restored starship.toml from backup" \
     || note_error "Failed to copy starship.toml backup"
 
@@ -110,7 +125,7 @@ print_step "Reverting shell config files…"
 _revert_shell_file() {
   local filename="$1"    # e.g. ".zshrc"
   local rcfile="$HOME/$filename"
-  local bakfile="$BACKUP_DIR/$filename.bak"
+  local bakfile="$RESTORE_DIR/$filename"
 
   if backup_valid "$bakfile"; then
     cp "$bakfile" "$rcfile" \
@@ -133,7 +148,7 @@ _revert_shell_file ".profile"
 
 # Fish
 FISH_CONFIG="$HOME/.config/fish/config.fish"
-FISH_BAK="$BACKUP_DIR/config.fish.bak"
+FISH_BAK="$RESTORE_DIR/config.fish"
 if backup_valid "$FISH_BAK"; then
   cp "$FISH_BAK" "$FISH_CONFIG" \
     && print_ok "  Restored fish config from backup" \
@@ -146,7 +161,7 @@ fi
 # 3. RESTORE iTerm2 PREFERENCES
 # ─────────────────────────────────────────────────────────────────────────────
 print_step "Reverting iTerm2 preferences…"
-ITERM2_BAK="$BACKUP_DIR/iterm2.plist.bak"
+ITERM2_BAK="$RESTORE_DIR/iterm2.plist"
 
 if backup_valid "$ITERM2_BAK"; then
   # Validate the plist before overwriting

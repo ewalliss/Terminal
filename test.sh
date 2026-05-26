@@ -219,6 +219,9 @@ assert_files_equal() {
 # ─────────────────────────────────────────────────────────────────────────────
 print_head "Phase 1: Running install.sh"
 
+# Wipe any stale real-system backups so Phase 1 assertions are isolated
+rm -rf "$SCRIPT_DIR/backup"
+
 # Snapshot originals for later comparison
 cp "$SANDBOX/.zshrc"           "$SANDBOX/.zshrc.orig"
 cp "$SANDBOX/.bashrc"          "$SANDBOX/.bashrc.orig"
@@ -230,31 +233,37 @@ zsh "$SCRIPT_DIR/install.sh" 2>&1 | sed 's/^/  /'
 
 print_head "Phase 1 assertions"
 
-# Backups exist
-assert_file_exists "$SCRIPT_DIR/backup/.zshrc.bak"        "backup .zshrc created"
-assert_file_exists "$SCRIPT_DIR/backup/.bashrc.bak"       "backup .bashrc created"
-assert_file_exists "$SCRIPT_DIR/backup/.zprofile.bak"     "backup .zprofile created"
-assert_file_exists "$SCRIPT_DIR/backup/config.fish.bak"   "backup fish config created"
-assert_file_exists "$SCRIPT_DIR/backup/starship.toml.bak" "backup starship.toml created"
-assert_file_exists "$SCRIPT_DIR/backup/iterm2.plist.bak"  "backup iTerm2 plist created"
-assert_file_exists "$SCRIPT_DIR/backup/manifest.txt"      "manifest created"
+# Snapshot archive exists
+_SNAPSHOT=$(ls -t "$SCRIPT_DIR/backup"/snapshot-*.tar.gz 2>/dev/null | head -1)
+assert_file_exists "$_SNAPSHOT" "snapshot archive created"
 
-# Manifest records state (origin depends on whether starship/font are
-# already on this machine — just verify the key exists with any value)
-assert_contains "$SCRIPT_DIR/backup/manifest.txt" "^starship=" \
+# Extract for content verification
+_SNAP_VERIFY=$(mktemp -d /tmp/term-test-verify.XXXXXX)
+[[ -f "$_SNAPSHOT" ]] && tar -xzf "$_SNAPSHOT" -C "$_SNAP_VERIFY" --strip-components=1 2>/dev/null
+
+assert_file_exists "$_SNAP_VERIFY/.zshrc"        "snapshot contains .zshrc"
+assert_file_exists "$_SNAP_VERIFY/.bashrc"       "snapshot contains .bashrc"
+assert_file_exists "$_SNAP_VERIFY/.zprofile"     "snapshot contains .zprofile"
+assert_file_exists "$_SNAP_VERIFY/config.fish"   "snapshot contains fish config"
+assert_file_exists "$_SNAP_VERIFY/starship.toml" "snapshot contains starship.toml"
+assert_file_exists "$_SNAP_VERIFY/iterm2.plist"  "snapshot contains iTerm2 plist"
+assert_file_exists "$_SNAP_VERIFY/manifest.txt"  "snapshot contains manifest"
+
+assert_contains "$_SNAP_VERIFY/manifest.txt" "^starship=" \
   "manifest: starship key present"
-assert_contains "$SCRIPT_DIR/backup/manifest.txt" "^nerd_font=" \
+assert_contains "$_SNAP_VERIFY/manifest.txt" "^nerd_font=" \
   "manifest: nerd_font key present"
-assert_contains "$SCRIPT_DIR/backup/manifest.txt" "starship_toml=existed" \
+assert_contains "$_SNAP_VERIFY/manifest.txt" "starship_toml=existed" \
   "manifest: starship_toml=existed"
-assert_contains "$SCRIPT_DIR/backup/manifest.txt" "iterm2_plist=existed" \
+assert_contains "$_SNAP_VERIFY/manifest.txt" "iterm2_plist=existed" \
   "manifest: iterm2_plist=existed"
 
-# Backups match originals
-assert_files_equal "$SCRIPT_DIR/backup/.zshrc.bak"         "$SANDBOX/.zshrc.orig"    \
-  "backup .zshrc matches original"
-assert_files_equal "$SCRIPT_DIR/backup/starship.toml.bak"  "$SANDBOX/starship.orig"  \
-  "backup starship.toml matches original"
+assert_files_equal "$_SNAP_VERIFY/.zshrc"        "$SANDBOX/.zshrc.orig"   \
+  "snapshot .zshrc matches original"
+assert_files_equal "$_SNAP_VERIFY/starship.toml" "$SANDBOX/starship.orig" \
+  "snapshot starship.toml matches original"
+
+rm -rf "$_SNAP_VERIFY"
 
 # Starship config was deployed (dark mode → mocha)
 assert_contains "$SANDBOX/.config/starship.toml" "catppuccin_mocha" \
