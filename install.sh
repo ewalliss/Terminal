@@ -57,10 +57,28 @@ fi
 
 # ── 4. Backup ─────────────────────────────────────────────────────────────────
 print_step "Backing up configs…"
-[[ -f "$HOME/.zshrc" ]]       && cp "$HOME/.zshrc"       "$BACKUP_DIR/.zshrc.bak"       && print_ok "  ~/.zshrc backed up"
-[[ -f "$STARSHIP_CONFIG" ]]   && cp "$STARSHIP_CONFIG"   "$BACKUP_DIR/starship.toml.bak" && print_ok "  starship.toml backed up"
-[[ -f "$ITERM2_PLIST" ]]      && plutil -convert xml1 -o "$BACKUP_DIR/iterm2.plist.bak" "$ITERM2_PLIST" 2>/dev/null \
-                               || cp "$ITERM2_PLIST" "$BACKUP_DIR/iterm2.plist.bak" 2>/dev/null
+_SNAP_NAME="snapshot-$(date -u +%Y-%m-%dT%H%M%SZ)"
+_SNAP_TMP="$BACKUP_DIR/$_SNAP_NAME"
+SNAPSHOT="$BACKUP_DIR/$_SNAP_NAME.tar.gz"
+mkdir -p "$_SNAP_TMP"
+
+[[ -f "$HOME/.zshrc" ]]    && cp "$HOME/.zshrc"    "$_SNAP_TMP/.zshrc"    && print_ok "  ~/.zshrc"
+[[ -f "$HOME/.zprofile" ]] && cp "$HOME/.zprofile" "$_SNAP_TMP/.zprofile" && print_ok "  ~/.zprofile"
+[[ -f "$HOME/.bashrc" ]]   && cp "$HOME/.bashrc"   "$_SNAP_TMP/.bashrc"   && print_ok "  ~/.bashrc"
+[[ -f "$HOME/.config/fish/config.fish" ]] \
+  && cp "$HOME/.config/fish/config.fish" "$_SNAP_TMP/config.fish" \
+  && print_ok "  fish config"
+[[ -f "$STARSHIP_CONFIG" ]] && cp "$STARSHIP_CONFIG" "$_SNAP_TMP/starship.toml" && print_ok "  starship.toml"
+if [[ -f "$ITERM2_PLIST" ]]; then
+  plutil -convert xml1 -o "$_SNAP_TMP/iterm2.plist" "$ITERM2_PLIST" 2>/dev/null \
+    || cp "$ITERM2_PLIST" "$_SNAP_TMP/iterm2.plist" 2>/dev/null
+  print_ok "  iTerm2 plist"
+fi
+cp "$MANIFEST" "$_SNAP_TMP/manifest.txt"
+
+tar -czf "$SNAPSHOT" -C "$BACKUP_DIR" "$_SNAP_NAME"
+rm -rf "$_SNAP_TMP"
+print_ok "Snapshot → $SNAPSHOT"
 
 # ── 5. Deploy Starship config ─────────────────────────────────────────────────
 mkdir -p "$HOME/.config"
@@ -74,7 +92,7 @@ else
 fi
 print_ok "Starship config → $STARSHIP_CONFIG"
 
-# ── 6. Inject starship init into ~/.zshrc ────────────────────────────────────
+# ── 6. Inject starship init into shell configs ───────────────────────────────
 if [[ -f "$HOME/.zshrc" && -w "$HOME/.zshrc" ]]; then
   if ! grep -q 'starship init zsh' "$HOME/.zshrc"; then
     printf '\n# Starship prompt\neval "$(starship init zsh)"\n' >> "$HOME/.zshrc"
@@ -84,6 +102,33 @@ if [[ -f "$HOME/.zshrc" && -w "$HOME/.zshrc" ]]; then
   fi
 else
   print_warn "~/.zshrc not found or not writable — skipped"
+fi
+
+if [[ -f "$HOME/.zprofile" && -w "$HOME/.zprofile" ]]; then
+  if ! grep -q 'starship init zsh' "$HOME/.zprofile"; then
+    printf '\n# Starship prompt\neval "$(starship init zsh)"\n' >> "$HOME/.zprofile"
+    print_ok "starship init injected → ~/.zprofile"
+  else
+    print_ok "starship init already in ~/.zprofile"
+  fi
+fi
+
+if [[ -f "$HOME/.bashrc" && -w "$HOME/.bashrc" ]]; then
+  if ! grep -q 'starship init bash' "$HOME/.bashrc"; then
+    printf '\n# Starship prompt\neval "$(starship init bash)"\n' >> "$HOME/.bashrc"
+    print_ok "starship init injected → ~/.bashrc"
+  else
+    print_ok "starship init already in ~/.bashrc"
+  fi
+fi
+
+if [[ -f "$HOME/.config/fish/config.fish" && -w "$HOME/.config/fish/config.fish" ]]; then
+  if ! grep -q 'starship init fish' "$HOME/.config/fish/config.fish"; then
+    printf '\n# Starship prompt\nstarship init fish | source\n' >> "$HOME/.config/fish/config.fish"
+    print_ok "starship init injected → fish config"
+  else
+    print_ok "starship init already in fish config"
+  fi
 fi
 
 # ── 7. iTerm2 color profiles ──────────────────────────────────────────────────
