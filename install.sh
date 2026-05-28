@@ -131,7 +131,23 @@ if [[ -f "$HOME/.config/fish/config.fish" && -w "$HOME/.config/fish/config.fish"
   fi
 fi
 
-# ── 7. iTerm2 color profiles ──────────────────────────────────────────────────
+# ── 7. Double-ESC to clear line ──────────────────────────────────────────────
+ESC_CLEAR_BLOCK='
+# Double-ESC to clear current line
+_esc_clear_line() { BUFFER=""; CURSOR=0; }
+zle -N _esc_clear_line
+bindkey '"'"'\e\e'"'"' _esc_clear_line'
+
+if [[ -f "$HOME/.zshrc" && -w "$HOME/.zshrc" ]]; then
+  if ! grep -q '_esc_clear_line' "$HOME/.zshrc"; then
+    printf '%s\n' "$ESC_CLEAR_BLOCK" >> "$HOME/.zshrc"
+    print_ok "Double-ESC clear line injected → ~/.zshrc"
+  else
+    print_ok "Double-ESC clear line already in ~/.zshrc"
+  fi
+fi
+
+# ── 8. iTerm2 color profiles ──────────────────────────────────────────────────
 ITERM2_APP=""
 [[ -d "/Applications/iTerm.app" ]]  && ITERM2_APP="/Applications/iTerm.app"
 [[ -d "/Applications/iTerm2.app" ]] && ITERM2_APP="/Applications/iTerm2.app"
@@ -149,7 +165,7 @@ else
   print_warn "iTerm2 not found — skipping color profile import"
 fi
 
-# ── 8. Toggle script ──────────────────────────────────────────────────────────
+# ── 9. Toggle script ──────────────────────────────────────────────────────────
 mkdir -p "$HOME/.local/bin"
 cat > "$TOGGLE_SCRIPT" <<TOGGLE
 #!/usr/bin/env zsh

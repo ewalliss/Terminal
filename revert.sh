@@ -47,6 +47,19 @@ backup_valid() {
   [[ -f "$f" && -s "$f" ]]   # exists and non-empty
 }
 
+# ── Helper: strip double-ESC binding lines from any file ─────────────────────
+strip_esc_clear_from() {
+  local rcfile="$1"
+  [[ -f "$rcfile" ]] || return 0
+  if grep -q '_esc_clear_line' "$rcfile" 2>/dev/null; then
+    sed -i '' \
+      -e '/# Double-ESC to clear current line/d' \
+      -e '/_esc_clear_line/d' \
+      "$rcfile" 2>/dev/null
+    print_ok "  stripped double-ESC binding from $rcfile"
+  fi
+}
+
 # ── Helper: strip starship init lines from any file ──────────────────────────
 strip_starship_from() {
   local rcfile="$1"
@@ -134,6 +147,7 @@ _revert_shell_file() {
   else
     # No valid backup — strip only the lines we added
     strip_starship_from "$rcfile"
+    strip_esc_clear_from "$rcfile"
     if [[ ! -f "$rcfile" ]]; then
       print_ok "  ~/$filename did not exist — nothing to revert"
     fi
@@ -155,6 +169,7 @@ if backup_valid "$FISH_BAK"; then
     || note_error "Failed to restore fish config"
 else
   strip_starship_from "$FISH_CONFIG"
+  strip_esc_clear_from "$FISH_CONFIG"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
