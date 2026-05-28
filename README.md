@@ -33,6 +33,30 @@ A complete [Catppuccin](https://github.com/catppuccin/catppuccin) terminal setup
 
 ---
 
+## Uninstall 
+
+```
+ewallis-terminal-uninstall
+```
+
+---
+
+## Change color and Style
+
+```
+  ewallis-theme               # show current selection
+  ewallis-theme latte         # light
+  ewallis-theme frappe        # dark + low contrast
+  ewallis-theme macchiato     # dark + mid contrast
+  ewallis-theme mocha         # dark + high contrast (default dark)
+  ewallis-theme --mode dark --contrast low      # = frappe
+  ewallis-theme --mode dark --contrast high     # = mocha
+  ewallis-theme --style A     # switch to powerline backgrounds
+  ewallis-theme --auto        # follow macOS Dark/Light
+  ewallis-theme --list        # show all palettes
+```
+---
+
 ## Install
 
 ```zsh
