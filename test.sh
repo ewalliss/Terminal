@@ -284,6 +284,9 @@ assert_contains "$SANDBOX/.zprofile" "brew shellenv"       "original .zprofile c
 # Toggle script created
 assert_file_exists "$SANDBOX/.local/bin/toggle-starship-theme" "toggle script created"
 
+# Double-ESC binding injected
+assert_contains "$SANDBOX/.zshrc" '_esc_clear_line' "double-ESC clear binding injected into .zshrc"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # PHASE 2 — RUN revert.sh
 # ─────────────────────────────────────────────────────────────────────────────
@@ -324,8 +327,9 @@ rm -rf "$SCRIPT_DIR/backup"
 mkdir -p "$SCRIPT_DIR/backup"
 
 # Re-run install so there's something to revert (but no backups for shell files)
-# Inject starship manually to simulate a partial install state
+# Inject starship + double-ESC binding manually to simulate a partial install state
 echo 'eval "$(starship init zsh)"' >> "$SANDBOX/.zshrc"
+printf '# Double-ESC to clear current line\n_esc_clear_line() { BUFFER=""; CURSOR=0; }\nzle -N _esc_clear_line\nbindkey '"'"'\\e\\e'"'"' _esc_clear_line\n' >> "$SANDBOX/.zshrc"
 echo 'eval "$(starship init bash)"' >> "$SANDBOX/.bashrc"
 echo 'starship init fish | source' >> "$SANDBOX/.config/fish/config.fish"
 cat > "$SANDBOX/.config/starship.toml" <<'EOF'
@@ -345,6 +349,10 @@ assert_not_contains "$SANDBOX/.bashrc" "starship init" \
   "starship init stripped from .bashrc (no backup)"
 assert_not_contains "$SANDBOX/.config/fish/config.fish" "starship init" \
   "starship init stripped from fish config (no backup)"
+
+# double-ESC binding stripped via sed fallback
+assert_not_contains "$SANDBOX/.zshrc" "_esc_clear_line" \
+  "double-ESC binding stripped from .zshrc (no backup)"
 
 # No manifest + no backup → starship.toml is removed (not written as fallback,
 # since we can't know if it existed before install)
