@@ -1,0 +1,209 @@
+#!/usr/bin/env zsh
+# ─────────────────────────────────────────────────────────────────────────────
+# ewallis-theme — switch terminal theme without reinstalling.
+#
+# Each Catppuccin flavor is mapped to a (mode, contrast) tuple so users can
+# think in plain language:
+#
+#   latte     →  light + (any contrast)
+#   frappe    →  dark  + low  contrast (soft, pastel)
+#   macchiato →  dark  + mid  contrast
+#   mocha     →  dark  + high contrast (sharp, default dark)
+#
+# Switching does two things:
+#   1. Rewrites the active iTerm2 dynamic profile JSON so iTerm2 reloads colors
+#   2. Edits the `palette = '...'` line in ~/.config/starship.toml so the
+#      next prompt renders in the new palette
+#
+# Nothing else changes — no reinstall, no shell rc edit, no system files.
+#
+# Usage:
+#   ewallis-theme                        # show current selection
+#   ewallis-theme latte|frappe|macchiato|mocha
+#   ewallis-theme light                  # alias → latte
+#   ewallis-theme dark                   # alias → mocha
+#   ewallis-theme --mode light|dark --contrast low|high
+#   ewallis-theme --style A|B            # style A = powerline, B = text-only
+#   ewallis-theme --auto                 # follow macOS Dark/Light
+#   ewallis-theme --list                 # show available palettes
+# ─────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+IFS=$'\n\t'
+export LANG="${LANG:-en_US.UTF-8}"
+
+PKG_ROOT="${EWALLIS_PKG_ROOT:-/usr/local/share/ewallis-terminal}"
+STATE_DIR="$HOME/.config/ewallis-terminal"
+STATE_FILE="$STATE_DIR/state.toml"
+STARSHIP_CFG="$HOME/.config/starship.toml"
+ITERM_DIR="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
+ITERM_ACTIVE="$ITERM_DIR/ewallis-terminal.json"
+
+[[ -d "$PKG_ROOT" ]] || { print -u2 -- "ewallis-terminal not installed at $PKG_ROOT"; exit 70; }
+
+say()  { print -P -- "%F{141}==>%f $*"; }
+ok()   { print -P -- "%F{114}  ok%f $*"; }
+warn() { print -P -- "%F{214}  warn%f $*"; }
+err()  { print -P -- "%F{196}  err%f $*"; }
+
+# ─── Argument parsing ────────────────────────────────────────────────────────
+PALETTE=""
+STYLE=""
+AUTO=0
+SHOW_LIST=0
+SHOW_STATUS_ONLY=0
+MODE=""
+CONTRAST=""
+
+while (( $# > 0 )); do
+  case "$1" in
+    latte|frappe|macchiato|mocha) PALETTE="$1"; shift ;;
+    light) PALETTE="latte"; shift ;;
+    dark)  PALETTE="mocha"; shift ;;
+    --mode)     MODE="${2:?}"; shift 2 ;;
+    --contrast) CONTRAST="${2:?}"; shift 2 ;;
+    --style)    STYLE="${2:?}";    shift 2 ;;
+    --auto)     AUTO=1; shift ;;
+    --list)     SHOW_LIST=1; shift ;;
+    -h|--help)
+      sed -n '3,30p' "$0" | sed 's/^# \?//'
+      exit 0
+      ;;
+    *) err "unknown arg: $1"; exit 2 ;;
+  esac
+done
+
+# Mode+contrast → palette resolution (overrides bare palette name if both given)
+if [[ -n "$MODE" || -n "$CONTRAST" ]]; then
+  [[ "$MODE" == "light" || "$MODE" == "dark" || -z "$MODE" ]] \
+    || { err "bad --mode: $MODE"; exit 2; }
+  [[ "$CONTRAST" == "low" || "$CONTRAST" == "high" || "$CONTRAST" == "medium" || -z "$CONTRAST" ]] \
+    || { err "bad --contrast: $CONTRAST"; exit 2; }
+  case "${MODE:-dark}/${CONTRAST:-high}" in
+    light/*)        PALETTE="latte" ;;
+    dark/low)       PALETTE="frappe" ;;
+    dark/medium)    PALETTE="macchiato" ;;
+    dark/high|dark/) PALETTE="mocha" ;;
+  esac
+fi
+
+# --auto: pick latte if macOS is in Light mode, mocha if Dark
+if (( AUTO )); then
+  if /usr/bin/defaults read -g AppleInterfaceStyle 2>/dev/null | grep -q "Dark"; then
+    PALETTE="mocha"
+  else
+    PALETTE="latte"
+  fi
+fi
+
+# ─── List mode ───────────────────────────────────────────────────────────────
+if (( SHOW_LIST )); then
+  print -- "Available palettes:"
+  print -- "  latte      light"
+  print -- "  frappe     dark · low  contrast"
+  print -- "  macchiato  dark · mid  contrast"
+  print -- "  mocha      dark · high contrast"
+  exit 0
+fi
+
+# ─── Status mode (no palette or style change requested) ──────────────────────
+if [[ -z "$PALETTE" && -z "$STYLE" ]]; then
+  if [[ -f "$STATE_FILE" ]]; then
+    print -- "Current theme:"
+    sed 's/^/  /' "$STATE_FILE"
+  else
+    print -- "No state file yet. Run:  ewallis-theme <palette>"
+  fi
+  exit 0
+fi
+
+# ─── Load existing state to preserve fields not being changed ────────────────
+prev_palette="mocha"
+prev_style="B"
+if [[ -f "$STATE_FILE" ]]; then
+  while IFS='=' read -r k v; do
+    k="${k// /}"; v="${v// /}"; v="${v//\"/}"
+    case "$k" in
+      palette) prev_palette="$v" ;;
+      style)   prev_style="$v" ;;
+    esac
+  done < "$STATE_FILE"
+fi
+
+[[ -z "$PALETTE" ]] && PALETTE="$prev_palette"
+[[ -z "$STYLE"   ]] && STYLE="$prev_style"
+
+[[ "$PALETTE" == "latte" || "$PALETTE" == "frappe" || "$PALETTE" == "macchiato" || "$PALETTE" == "mocha" ]] \
+  || { err "bad palette: $PALETTE"; exit 2; }
+[[ "$STYLE" == "A" || "$STYLE" == "B" ]] \
+  || { err "bad --style: $STYLE (must be A or B)"; exit 2; }
+
+# ─── 1. Rewrite iTerm2 active profile ────────────────────────────────────────
+say "Updating iTerm2 dynamic profile"
+SRC_ITERM="$PKG_ROOT/iterm2/catppuccin-$PALETTE.json"
+[[ -f "$SRC_ITERM" ]] || { err "missing iTerm2 profile: $SRC_ITERM"; exit 70; }
+mkdir -p "$ITERM_DIR"
+# Atomic: copy to .tmp on same fs, then rename
+tmp="$ITERM_ACTIVE.tmp.$$"
+cp -p "$SRC_ITERM" "$tmp"
+# Rewrite Name + Guid so all four palettes share ONE iTerm2 profile slot.
+# iTerm2 keys profiles by Guid; the active.json keeps a stable Guid so the
+# user's profile selection in iTerm2 settings never resets.
+/usr/bin/python3 - "$tmp" <<'PY'
+import json, sys
+p = sys.argv[1]
+with open(p) as f: doc = json.load(f)
+for prof in doc.get("Profiles", []):
+    prof["Name"] = "EwallisTerminal"
+    prof["Guid"] = "F4B6D3B2-EWAL-LIST-ACTV-EWALLISTERM01"
+with open(p, "w") as f:
+    json.dump(doc, f, indent=2)
+    f.write("\n")
+PY
+mv -f "$tmp" "$ITERM_ACTIVE"
+ok "iTerm2 → ewallis-terminal.json (palette: catppuccin_$PALETTE)"
+
+# ─── 2. Switch starship palette in-place ─────────────────────────────────────
+say "Switching starship palette"
+if [[ ! -f "$STARSHIP_CFG" ]]; then
+  warn "no $STARSHIP_CFG — deploying merged config first"
+  mkdir -p "${STARSHIP_CFG:h}"
+  cp -p "$PKG_ROOT/configs/starship-style-${STYLE:l}.toml" "$STARSHIP_CFG"
+fi
+
+# Does the active starship.toml contain all 4 palettes? If it's an old
+# single-palette file, replace it with the merged one of the chosen style.
+n_palettes=$(grep -c '^\[palettes\.catppuccin_' "$STARSHIP_CFG" 2>/dev/null || echo 0)
+if (( n_palettes < 4 )); then
+  warn "starship.toml has only $n_palettes palette(s) — upgrading to merged config"
+  cp -p "$PKG_ROOT/configs/starship-style-${STYLE:l}.toml" "$STARSHIP_CFG.tmp.$$"
+  mv -f "$STARSHIP_CFG.tmp.$$" "$STARSHIP_CFG"
+fi
+
+# Flip the active palette
+/usr/bin/sed -i '' -E "s|^palette = '[^']*'|palette = 'catppuccin_$PALETTE'|" "$STARSHIP_CFG"
+ok "starship.toml → palette = catppuccin_$PALETTE"
+
+# Optional style switch swaps the whole file (which keeps all 4 palettes baked in)
+if [[ "$STYLE" != "$prev_style" ]]; then
+  say "Switching prompt style ($prev_style → $STYLE)"
+  cp -p "$PKG_ROOT/configs/starship-style-${STYLE:l}.toml" "$STARSHIP_CFG.tmp.$$"
+  /usr/bin/sed -i '' -E "s|^palette = '[^']*'|palette = 'catppuccin_$PALETTE'|" "$STARSHIP_CFG.tmp.$$"
+  mv -f "$STARSHIP_CFG.tmp.$$" "$STARSHIP_CFG"
+  ok "starship.toml → style $STYLE"
+fi
+
+# ─── 3. Persist state ────────────────────────────────────────────────────────
+mkdir -p "$STATE_DIR"
+{
+  print -- "# Managed by ewallis-theme — edit via the CLI."
+  print -- "palette = \"$PALETTE\""
+  print -- "style   = \"$STYLE\""
+} > "$STATE_FILE.tmp.$$"
+mv -f "$STATE_FILE.tmp.$$" "$STATE_FILE"
+ok "state → $STATE_FILE"
+
+print -- ""
+print -P -- "  iTerm2: open a new tab to see the new colors"
+print -P -- "  Shell:  the next prompt will use catppuccin_$PALETTE"
+print -- ""
+print -P -- "  In iTerm2 → Settings → Profiles, select %F{141}EwallisTerminal%f as default."

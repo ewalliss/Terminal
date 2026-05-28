@@ -1,0 +1,36 @@
+#!/bin/bash
+# ─────────────────────────────────────────────────────────────────────────────
+# preinstall — runs as root, BEFORE the payload is laid down.
+#
+# This script is allowed to fail (we never block on missing deps). It only
+# emits warnings to the installer log so the user knows what to do after.
+# Real per-user setup happens in postinstall.
+# ─────────────────────────────────────────────────────────────────────────────
+set -u
+export LANG="${LANG:-en_US.UTF-8}"
+
+log() { /bin/echo "[ewallis-terminal preinstall] $*"; }
+
+log "macOS $(/usr/bin/sw_vers -productVersion)  arch=$(/usr/bin/arch)"
+
+# Soft check: Homebrew available?
+if ! /usr/bin/command -v brew >/dev/null 2>&1 \
+   && [[ ! -x /opt/homebrew/bin/brew && ! -x /usr/local/bin/brew ]]; then
+  log "WARN: Homebrew not found. starship/font will need manual install."
+fi
+
+# Soft check: starship installed?
+if ! /usr/bin/command -v starship >/dev/null 2>&1 \
+   && [[ ! -x /opt/homebrew/bin/starship && ! -x /usr/local/bin/starship ]]; then
+  log "WARN: starship binary not found. Install with: brew install starship"
+fi
+
+# Soft check: JetBrainsMono Nerd Font?
+shopt -s nullglob 2>/dev/null || true
+fonts_user=("$HOME"/Library/Fonts/JetBrainsMonoNerdFont*)
+fonts_system=(/Library/Fonts/JetBrainsMonoNerdFont*)
+if (( ${#fonts_user[@]} == 0 && ${#fonts_system[@]} == 0 )); then
+  log "WARN: JetBrainsMono Nerd Font not found. Install with: brew install --cask font-jetbrains-mono-nerd-font"
+fi
+
+exit 0

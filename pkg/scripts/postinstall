@@ -1,0 +1,75 @@
+#!/bin/bash
+# ─────────────────────────────────────────────────────────────────────────────
+# postinstall — runs as root, AFTER payload landed at /usr/local/share/.
+#
+# Job: figure out who the GUI-logged-in user is, drop to that user, and run
+# the per-user setup. Multi-user Macs can rerun the setup per user with:
+#   /usr/local/share/ewallis-terminal/bin/ewallis-terminal-setup-user
+# ─────────────────────────────────────────────────────────────────────────────
+set -u
+export LANG="${LANG:-en_US.UTF-8}"
+
+PKG_ROOT="/usr/local/share/ewallis-terminal"
+SETUP_USER="$PKG_ROOT/bin/ewallis-terminal-setup-user"
+
+log() { /bin/echo "[ewallis-terminal postinstall] $*"; }
+
+# ─── Sanity: payload landed where expected ──────────────────────────────────
+if [[ ! -x "$SETUP_USER" ]]; then
+  log "ERROR: setup-user missing at $SETUP_USER"
+  exit 1
+fi
+
+# Make sure all our bin scripts are executable (pkgbuild preserves mode, but
+# belt-and-braces).
+/bin/chmod 0755 "$PKG_ROOT"/bin/* 2>/dev/null || true
+
+# ─── Who is the actual user? ────────────────────────────────────────────────
+# When the .pkg runs via Installer.app or `sudo installer`, $USER is "root"
+# and $HOME is /var/root. The correct way to find the desktop user is to look
+# at /dev/console ownership.
+CONSOLE_USER="$(/usr/bin/stat -f "%Su" /dev/console 2>/dev/null || true)"
+if [[ -z "$CONSOLE_USER" || "$CONSOLE_USER" == "root" || "$CONSOLE_USER" == "_" ]]; then
+  # Fallback: SUDO_USER if invoked via `sudo installer`
+  CONSOLE_USER="${SUDO_USER:-}"
+fi
+
+if [[ -z "$CONSOLE_USER" || "$CONSOLE_USER" == "root" ]]; then
+  log "WARN: could not determine console user. Per-user setup skipped."
+  log "      Run manually: $SETUP_USER"
+  exit 0
+fi
+
+# Resolve their real home dir via dscl (more reliable than `eval echo ~user`)
+USER_HOME="$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | /usr/bin/awk '{print $2}')"
+if [[ -z "$USER_HOME" || ! -d "$USER_HOME" ]]; then
+  log "WARN: could not resolve home for $CONSOLE_USER. Per-user setup skipped."
+  exit 0
+fi
+
+log "running per-user setup as $CONSOLE_USER (HOME=$USER_HOME)"
+
+# ─── Drop privileges and run setup-user ──────────────────────────────────────
+# Use `sudo -u` with -H to set HOME, and a clean PATH so the user sees
+# /usr/local/bin and /opt/homebrew/bin (starship etc.).
+/usr/bin/sudo -u "$CONSOLE_USER" -H \
+  /usr/bin/env \
+    HOME="$USER_HOME" \
+    USER="$CONSOLE_USER" \
+    LOGNAME="$CONSOLE_USER" \
+    PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+    LANG="en_US.UTF-8" \
+  /bin/zsh "$SETUP_USER" \
+  >> "$USER_HOME/.local/share/ewallis-terminal/postinstall.log" 2>&1 \
+  || log "WARN: setup-user exited non-zero — see $USER_HOME/.local/share/ewallis-terminal/postinstall.log"
+
+# Symlink the per-user setup + uninstall scripts into /usr/local/bin so they
+# appear in PATH. Use -h to overwrite existing symlinks safely.
+/bin/mkdir -p /usr/local/bin
+/bin/ln -sfh "$PKG_ROOT/bin/ewallis-terminal-setup-user" /usr/local/bin/ewallis-terminal-setup-user 2>/dev/null || true
+/bin/ln -sfh "$PKG_ROOT/bin/ewallis-terminal-uninstall"  /usr/local/bin/ewallis-terminal-uninstall  2>/dev/null || true
+/bin/ln -sfh "$PKG_ROOT/bin/ewallis-theme"               /usr/local/bin/ewallis-theme               2>/dev/null || true
+/bin/ln -sfh "$PKG_ROOT/bin/toggle-starship-theme"       /usr/local/bin/toggle-starship-theme       2>/dev/null || true
+
+log "done"
+exit 0

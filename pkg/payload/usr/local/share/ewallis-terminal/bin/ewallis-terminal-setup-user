@@ -1,0 +1,237 @@
+#!/usr/bin/env zsh
+# ─────────────────────────────────────────────────────────────────────────────
+# ewallis-terminal — per-user setup
+#
+# Runs AS THE TARGET USER (never as root). The pkg postinstall drops privileges
+# via `sudo -u` before invoking this. Safe to re-run; everything is idempotent.
+#
+# What it does:
+#   1. Detects macOS dark/light appearance, picks mocha/latte
+#   2. Deploys starship.toml      → ~/.config/starship.toml
+#   3. Deploys iTerm2 profiles    → ~/Library/Application Support/iTerm2/DynamicProfiles/
+#   4. Deploys toggle script      → ~/.local/bin/toggle-starship-theme
+#   5. Injects marker-bounded block into shell rcs
+#   6. Records every change in   → ~/.local/share/ewallis-terminal/install.manifest
+#
+# Backups for any file we modify go to:
+#   ~/.local/share/ewallis-terminal/backups/<timestamp>/
+# ─────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+IFS=$'\n\t'
+export LANG="${LANG:-en_US.UTF-8}"
+
+PKG_ROOT="${EWALLIS_PKG_ROOT:-/usr/local/share/ewallis-terminal}"
+PKG_NAME="ewallis-terminal"
+STATE_DIR="$HOME/.local/share/$PKG_NAME"
+BACKUP_ROOT="$STATE_DIR/backups"
+MANIFEST="$STATE_DIR/install.manifest"
+TIMESTAMP="$(date -u +%Y-%m-%dT%H%M%SZ)"
+BACKUP_DIR="$BACKUP_ROOT/$TIMESTAMP"
+
+# Refuse to run as root — this script is per-user.
+if [[ "$(id -u)" -eq 0 ]]; then
+  print -u2 -- "ERROR: $0 must NOT run as root. Use postinstall to drop privileges."
+  exit 64
+fi
+
+# Refuse to run if $HOME isn't writable.
+if [[ ! -d "$HOME" || ! -w "$HOME" ]]; then
+  print -u2 -- "ERROR: \$HOME ($HOME) is not writable."
+  exit 65
+fi
+
+# Refuse to run if payload is missing.
+if [[ ! -d "$PKG_ROOT" ]]; then
+  print -u2 -- "ERROR: package payload missing at $PKG_ROOT."
+  exit 66
+fi
+
+# ─── Style helpers (no external deps) ────────────────────────────────────────
+say()  { print -P -- "%F{141}==>%f $*"; }
+ok()   { print -P -- "%F{114}  ok%f $*"; }
+warn() { print -P -- "%F{214}  warn%f $*"; }
+err()  { print -P -- "%F{196}  err%f $*"; }
+
+# ─── Parse args ──────────────────────────────────────────────────────────────
+# --variant mocha|latte|auto    (default: auto = follow macOS Appearance)
+# --style   A|B                 (default: B = text-only segments)
+VARIANT="auto"
+STYLE="B"
+while (( $# > 0 )); do
+  case "$1" in
+    --variant) VARIANT="${2:?}"; shift 2 ;;
+    --style)   STYLE="${2:?}";   shift 2 ;;
+    --help|-h)
+      print -- "Usage: $0 [--variant auto|mocha|latte] [--style A|B]"
+      exit 0
+      ;;
+    *) err "unknown arg: $1"; exit 2 ;;
+  esac
+done
+
+if [[ "$VARIANT" == "auto" ]]; then
+  if /usr/bin/defaults read -g AppleInterfaceStyle 2>/dev/null | grep -q "Dark"; then
+    VARIANT="mocha"
+  else
+    VARIANT="latte"
+  fi
+fi
+[[ "$VARIANT" == "latte" || "$VARIANT" == "frappe" || "$VARIANT" == "macchiato" || "$VARIANT" == "mocha" ]] \
+  || { err "bad --variant: $VARIANT (one of: latte frappe macchiato mocha)"; exit 2; }
+[[ "$STYLE" == "A" || "$STYLE" == "B" ]] \
+  || { err "bad --style: $STYLE"; exit 2; }
+
+# Merged starship config (all four palettes baked in; ewallis-theme switches between them)
+SRC_TOML="$PKG_ROOT/configs/starship-style-${STYLE:l}.toml"
+[[ -f "$SRC_TOML" ]] || { err "starship config not found: $SRC_TOML"; exit 70; }
+
+# ─── Prepare state dir + manifest ────────────────────────────────────────────
+mkdir -p "$STATE_DIR" "$BACKUP_DIR"
+chmod 700 "$STATE_DIR" "$BACKUP_ROOT" "$BACKUP_DIR"
+
+# Manifest is append-only TSV. New install overwrites with fresh header.
+{
+  print -- "# ewallis-terminal manifest v1"
+  print -- "install_date\t$TIMESTAMP"
+  print -- "package_root\t$PKG_ROOT"
+  print -- "variant\t$VARIANT"
+  print -- "style\t$STYLE"
+  print -- "backup_dir\t$BACKUP_DIR"
+} > "$MANIFEST.tmp"
+mv -f "$MANIFEST.tmp" "$MANIFEST"
+
+manifest_record() {
+  # manifest_record <kind> <arg1> [arg2]
+  # kind ∈ {deployed, injected, backup}
+  # Args joined by literal TAB. Paths-with-spaces are preserved verbatim.
+  local out=""
+  local arg
+  for arg in "$@"; do
+    [[ -n "$out" ]] && out+=$'\t'
+    out+="$arg"
+  done
+  print -r -- "$out" >> "$MANIFEST"
+}
+
+# ─── Atomic copy with backup of any pre-existing file ────────────────────────
+deploy_file() {
+  # deploy_file <src> <dst>
+  local src="$1" dst="$2"
+  local dst_dir="${dst:h}"
+  mkdir -p "$dst_dir"
+  if [[ -e "$dst" ]]; then
+    local rel="${dst#$HOME/}"
+    local bak="$BACKUP_DIR/$rel"
+    mkdir -p "${bak:h}"
+    cp -p "$dst" "$bak"
+    manifest_record "backup" "$dst" "$bak"
+  fi
+  local tmp="$dst.tmp.$$"
+  cp -p "$src" "$tmp"
+  mv -f "$tmp" "$dst"
+  manifest_record "deployed" "$dst"
+}
+
+# ─── Marker-bounded inject (idempotent) ──────────────────────────────────────
+inject_block() {
+  # inject_block <rcfile> <snippet>
+  local rc="$1" snippet="$2"
+  [[ -f "$snippet" ]] || { warn "snippet missing: $snippet"; return 0; }
+
+  # Backup the rc file before any edit
+  if [[ -e "$rc" ]]; then
+    local rel="${rc#$HOME/}"
+    local bak="$BACKUP_DIR/$rel"
+    mkdir -p "${bak:h}"
+    cp -p "$rc" "$bak"
+    manifest_record "backup" "$rc" "$bak"
+  fi
+
+  mkdir -p "${rc:h}"
+  touch "$rc"
+
+  # Strip any existing block (so re-runs replace cleanly), then append fresh.
+  # awk-based strip is safer than sed for multi-line matches.
+  local tmp="$rc.tmp.$$"
+  awk '
+    BEGIN { in_block = 0 }
+    /^# >>> ewallis-terminal >>>/ { in_block = 1; next }
+    /^# <<< ewallis-terminal <<</ { in_block = 0; next }
+    in_block == 0 { print }
+  ' "$rc" > "$tmp"
+
+  # Ensure file ends with newline before appending block
+  [[ -s "$tmp" && "$(tail -c1 "$tmp" 2>/dev/null | od -An -c | tr -d ' ')" != "\\n" ]] && print -- "" >> "$tmp"
+
+  cat "$snippet" >> "$tmp"
+  mv -f "$tmp" "$rc"
+  manifest_record "injected" "$rc"
+}
+
+# ─── 1. Deploy merged starship.toml (all four palettes) ─────────────────────
+say "Deploying starship config (style=$STYLE, default palette=$VARIANT)"
+deploy_file "$SRC_TOML" "$HOME/.config/starship.toml"
+# Set the active palette to match the chosen variant
+/usr/bin/sed -i '' -E "s|^palette = '[^']*'|palette = 'catppuccin_$VARIANT'|" "$HOME/.config/starship.toml"
+ok "starship.toml → palette = catppuccin_$VARIANT"
+
+# ─── 2. Deploy single iTerm2 Dynamic Profile (active = the chosen variant) ──
+say "Installing iTerm2 dynamic profile"
+ITERM_DIR="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
+ITERM_ACTIVE="$ITERM_DIR/ewallis-terminal.json"
+mkdir -p "$ITERM_DIR"
+# Copy the chosen variant's profile to the stable "active" path. ewallis-theme
+# rewrites this same file to switch palettes without reinstalling.
+deploy_file "$PKG_ROOT/iterm2/catppuccin-$VARIANT.json" "$ITERM_ACTIVE"
+# Rename inside the JSON so all four palette swaps share ONE iTerm2 profile slot
+/usr/bin/python3 - "$ITERM_ACTIVE" <<'PY'
+import json, sys
+p = sys.argv[1]
+with open(p) as f: doc = json.load(f)
+for prof in doc.get("Profiles", []):
+    prof["Name"] = "EwallisTerminal"
+    prof["Guid"] = "F4B6D3B2-EWAL-LIST-ACTV-EWALLISTERM01"
+with open(p, "w") as f:
+    json.dump(doc, f, indent=2)
+    f.write("\n")
+PY
+ok "iTerm2 → EwallisTerminal profile (palette: catppuccin_$VARIANT)"
+
+# ─── 3. Deploy theme switcher + legacy toggle ────────────────────────────────
+say "Installing CLI tools"
+for tool in ewallis-theme toggle-starship-theme; do
+  SRC="$PKG_ROOT/bin/$tool"
+  if [[ -f "$SRC" ]]; then
+    deploy_file "$SRC" "$HOME/.local/bin/$tool"
+    chmod +x "$HOME/.local/bin/$tool"
+    ok "$tool → ~/.local/bin/$tool"
+  fi
+done
+
+# ─── 4. Write initial state for ewallis-theme ────────────────────────────────
+mkdir -p "$HOME/.config/ewallis-terminal"
+{
+  print -- "# Managed by ewallis-theme — edit via the CLI."
+  print -- "palette = \"$VARIANT\""
+  print -- "style   = \"$STYLE\""
+} > "$HOME/.config/ewallis-terminal/state.toml.tmp"
+mv -f "$HOME/.config/ewallis-terminal/state.toml.tmp" "$HOME/.config/ewallis-terminal/state.toml"
+manifest_record "deployed" "$HOME/.config/ewallis-terminal/state.toml"
+
+# ─── 5. Inject shell rc blocks ───────────────────────────────────────────────
+say "Injecting shell init"
+inject_block "$HOME/.zshrc"    "$PKG_ROOT/snippets/zshrc.sh"
+inject_block "$HOME/.zprofile" "$PKG_ROOT/snippets/zprofile.sh"
+[[ -f "$HOME/.bashrc" ]] && inject_block "$HOME/.bashrc" "$PKG_ROOT/snippets/bashrc.sh"
+if [[ -f "$HOME/.config/fish/config.fish" ]]; then
+  inject_block "$HOME/.config/fish/config.fish" "$PKG_ROOT/snippets/fish.fish"
+fi
+ok "shell rcs injected (markers bound the managed block)"
+
+# ─── 5. Done ─────────────────────────────────────────────────────────────────
+print -- ""
+ok "ewallis-terminal setup complete for $USER"
+print -P -- "%F{245}  manifest: $MANIFEST%f"
+print -P -- "%F{245}  backups:  $BACKUP_DIR%f"
+print -- ""
+print -P -- "  Open a new terminal, or run: %F{141}exec zsh%f"

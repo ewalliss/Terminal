@@ -1,0 +1,172 @@
+#!/usr/bin/env zsh
+# ─────────────────────────────────────────────────────────────────────────────
+# ewallis-terminal — uninstaller
+#
+# Reverses everything ewallis-terminal-setup-user did, for the *current user*.
+#
+# Phases:
+#   user   — strip marker blocks, restore backups, remove deployed files,
+#            remove ~/.local/share/ewallis-terminal/.
+#   system — (requires sudo) remove /usr/local/share/ewallis-terminal and
+#            forget the pkg receipt.
+#
+# Usage:
+#   ewallis-terminal-uninstall            # user phase only
+#   ewallis-terminal-uninstall --system   # user phase, then sudo for system
+#   ewallis-terminal-uninstall --all      # alias for --system
+#   ewallis-terminal-uninstall --dry-run  # show what would happen
+# ─────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+IFS=$'\n\t'
+export LANG="${LANG:-en_US.UTF-8}"
+
+PKG_ID="com.ewalliss.ewallis-terminal"
+PKG_NAME="ewallis-terminal"
+PKG_ROOT="${EWALLIS_PKG_ROOT:-/usr/local/share/$PKG_NAME}"
+STATE_DIR="$HOME/.local/share/$PKG_NAME"
+MANIFEST="$STATE_DIR/install.manifest"
+
+# Refuse to run as root for the user phase (we'd nuke /var/root state)
+if [[ "$(id -u)" -eq 0 ]]; then
+  print -u2 -- "ERROR: do not run uninstall as root. Run as the user who installed."
+  print -u2 -- "       (sudo escalation for system phase is handled internally.)"
+  exit 64
+fi
+
+DO_SYSTEM=0
+DRY_RUN=0
+while (( $# > 0 )); do
+  case "$1" in
+    --system|--all) DO_SYSTEM=1 ;;
+    --dry-run)      DRY_RUN=1 ;;
+    --help|-h)
+      print -- "Usage: $0 [--system|--all] [--dry-run]"
+      exit 0
+      ;;
+    *) print -u2 -- "unknown arg: $1"; exit 2 ;;
+  esac
+  shift
+done
+
+say()  { print -P -- "%F{141}==>%f $*"; }
+ok()   { print -P -- "%F{114}  ok%f $*"; }
+warn() { print -P -- "%F{214}  warn%f $*"; }
+err()  { print -P -- "%F{196}  err%f $*"; }
+run()  {
+  if (( DRY_RUN )); then
+    print -P -- "%F{245}  dry  $*%f"
+  else
+    eval -- "$@"
+  fi
+}
+
+# ─── User phase ──────────────────────────────────────────────────────────────
+if [[ ! -f "$MANIFEST" ]]; then
+  warn "no manifest at $MANIFEST — nothing recorded for this user."
+  warn "Will still attempt best-effort cleanup of marker blocks."
+fi
+
+# 1. Strip marker blocks from any known shell rc, manifest or not (defensive).
+strip_marker_block() {
+  local rc="$1"
+  [[ -f "$rc" ]] || return 0
+  if ! grep -q '^# >>> ewallis-terminal >>>' "$rc" 2>/dev/null; then
+    return 0
+  fi
+  local tmp="$rc.tmp.$$"
+  awk '
+    BEGIN { in_block = 0 }
+    /^# >>> ewallis-terminal >>>/ { in_block = 1; next }
+    /^# <<< ewallis-terminal <<</ { in_block = 0; next }
+    in_block == 0 { print }
+  ' "$rc" > "$tmp"
+  if (( DRY_RUN )); then
+    print -P -- "%F{245}  dry  strip block from $rc%f"
+    rm -f "$tmp"
+  else
+    mv -f "$tmp" "$rc"
+    ok "stripped block: $rc"
+  fi
+}
+
+say "Stripping marker blocks"
+for rc in "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.config/fish/config.fish"; do
+  strip_marker_block "$rc"
+done
+
+# 2. Restore from backups recorded in the manifest.
+if [[ -f "$MANIFEST" ]]; then
+  say "Restoring from backups"
+  while IFS=$'\t' read -r kind orig backup; do
+    [[ "$kind" == "backup" ]] || continue
+    if [[ -f "$backup" ]]; then
+      if (( DRY_RUN )); then
+        print -P -- "%F{245}  dry  restore $orig from $backup%f"
+      else
+        cp -p -- "$backup" "$orig"
+        ok "restored: $orig"
+      fi
+    else
+      warn "backup missing: $backup (skipping $orig)"
+    fi
+  done < "$MANIFEST"
+
+  # 3. Remove deployed files that have no backup entry (= they didn't exist before).
+  say "Removing files we deployed"
+  # Build set of paths that were restored from backup
+  typeset -A restored_set=()
+  while IFS=$'\t' read -r kind orig backup; do
+    [[ "$kind" == "backup" ]] || continue
+    restored_set[$orig]=1
+  done < "$MANIFEST"
+
+  while IFS=$'\t' read -r kind target _; do
+    [[ "$kind" == "deployed" ]] || continue
+    [[ -n "${restored_set[$target]:-}" ]] && continue   # was restored — leave it
+    if [[ -e "$target" ]]; then
+      if (( DRY_RUN )); then
+        print -P -- "%F{245}  dry  rm $target%f"
+      else
+        /bin/rm -f -- "$target"
+        ok "removed: $target"
+      fi
+    fi
+  done < "$MANIFEST"
+fi
+
+# 4. Remove per-user state dir (manifest + backups). User can keep backups
+#    if they want — we leave the dir if DRY_RUN.
+say "Cleaning per-user state"
+if (( DRY_RUN )); then
+  print -P -- "%F{245}  dry  rm -rf $STATE_DIR%f"
+else
+  rm -rf -- "$STATE_DIR"
+  ok "removed: $STATE_DIR"
+fi
+
+# ─── System phase (requires sudo) ────────────────────────────────────────────
+if (( DO_SYSTEM )); then
+  print -- ""
+  say "System phase — requires sudo"
+
+  if (( DRY_RUN )); then
+    print -P -- "%F{245}  dry  sudo rm -rf $PKG_ROOT%f"
+    print -P -- "%F{245}  dry  sudo pkgutil --forget $PKG_ID%f"
+  else
+    if [[ -d "$PKG_ROOT" ]]; then
+      sudo /bin/rm -rf -- "$PKG_ROOT"
+      ok "removed: $PKG_ROOT"
+    fi
+    if /usr/sbin/pkgutil --pkg-info "$PKG_ID" >/dev/null 2>&1; then
+      sudo /usr/sbin/pkgutil --forget "$PKG_ID"
+      ok "forgot receipt: $PKG_ID"
+    fi
+  fi
+else
+  print -- ""
+  warn "System files at $PKG_ROOT NOT removed (per-user uninstall only)."
+  warn "To remove for all users:  $0 --system"
+fi
+
+print -- ""
+ok "Uninstall complete. Open a new terminal."
