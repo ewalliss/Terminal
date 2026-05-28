@@ -109,8 +109,8 @@ if [[ -o interactive ]] \
   && [[ -z "${EWALLIS_NO_BANNER:-}" ]] \
   && [[ ! -f "$HOME/.config/ewallis-terminal/banner.disabled" ]]; then
   export EWALLIS_BANNER_SHOWN=1
-  if [[ -x "$_EWALLIS_PKG_ROOT/bin/ewallis-welcome" ]]; then
-    "$_EWALLIS_PKG_ROOT/bin/ewallis-welcome" 2>/dev/null
+  if [[ -x "$_EWALLIS_PKG_ROOT/bin/ew-welcome" ]]; then
+    "$_EWALLIS_PKG_ROOT/bin/ew-welcome" 2>/dev/null
   fi
 fi
 

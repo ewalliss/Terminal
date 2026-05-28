@@ -10,10 +10,11 @@
 #   ew banner-off           Disable the welcome banner.
 #   ew banner-toggle        Flip whichever state it's currently in.
 #   ew welcome              Print the banner right now.
-#   ew theme [args…]        Passthrough to `ewallis-theme`.
-#   ew doctor [args…]       Passthrough to `ewallis-terminal-doctor`.
+#   ew theme [args…]        Switch palette (latte | frappe | macchiato | mocha).
+#   ew doctor [args…]       Check dependencies; --self-test for full cycle.
+#   ew setup [args…]        Re-run per-user setup (rc inject, plugin theme).
 #   ew update [--check]     Check GitHub Releases; install latest .pkg.
-#   ew uninstall [args…]    Passthrough to `ewallis-terminal-uninstall`.
+#   ew uninstall [args…]    Remove EwallisTerminal (user phase; --system for all).
 #   ew help                 Show this help.
 #   ew version              Show installed version.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ warn() { print -P -- "%F{214}  !%f $*"; }
 err()  { print -u2 -P -- "%F{196}  ✗%f $*"; }
 
 usage() {
-  sed -n '3,18p' "$SCRIPT_PATH" | sed -E 's/^# ?//'
+  sed -n '3,19p' "$SCRIPT_PATH" | sed -E 's/^# ?//'
 }
 
 # ─── ew update ───────────────────────────────────────────────────────────────
@@ -217,11 +218,12 @@ case "$cmd" in
   banner-toggle|banner_toggle) banner_toggle ;;
   banner-status|banner_status) banner_status ;;
   status)                      show_status ;;
-  welcome)                     exec "$PKG_ROOT/bin/ewallis-welcome" "$@" ;;
-  theme)                       exec "$PKG_ROOT/bin/ewallis-theme" "$@" ;;
-  doctor)                      exec "$PKG_ROOT/bin/ewallis-terminal-doctor" "$@" ;;
+  welcome)                     exec "$PKG_ROOT/bin/ew-welcome" "$@" ;;
+  theme)                       exec "$PKG_ROOT/bin/ew-theme" "$@" ;;
+  doctor)                      exec "$PKG_ROOT/bin/ew-doctor" "$@" ;;
+  setup)                       exec "$PKG_ROOT/bin/ew-setup" "$@" ;;
   update)                      do_update "$@" ;;
-  uninstall)                   exec "$PKG_ROOT/bin/ewallis-terminal-uninstall" "$@" ;;
+  uninstall)                   exec "$PKG_ROOT/bin/ew-uninstall" "$@" ;;
   version|--version|-v)
     [[ -r "$PKG_ROOT/VERSION" ]] && cat "$PKG_ROOT/VERSION" || print -- "unknown"
     ;;

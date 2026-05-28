@@ -1,6 +1,7 @@
 #!/usr/bin/env zsh
 # ─────────────────────────────────────────────────────────────────────────────
-# ewallis-terminal-doctor — check + offer to install missing dependencies.
+# ew-doctor — check + offer to install missing dependencies.
+#            Invoked as `ew doctor` via the main dispatcher.
 #
 # Checks (in order):
 #   1. Homebrew         — if missing, point user to brew.sh (we don't auto-curl).
@@ -12,9 +13,10 @@
 # Removes ~/.local/share/ewallis-terminal/needs-doctor on success.
 #
 # Usage:
-#   ewallis-terminal-doctor              # interactive
-#   ewallis-terminal-doctor --auto       # install everything missing, no prompt
-#   ewallis-terminal-doctor --check-only # report status; exit = number missing
+#   ew doctor                # interactive
+#   ew doctor --auto         # install everything missing, no prompt
+#   ew doctor --check-only   # report status; exit = number missing
+#   ew doctor --self-test    # 11-step sandboxed install/theme/uninstall cycle
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 IFS=$'\n\t'
@@ -22,7 +24,7 @@ export LANG="${LANG:-en_US.UTF-8}"
 
 # Refuse to run as root — brew refuses anyway, and we'd write to /var/root.
 if [[ "$(id -u)" -eq 0 ]]; then
-  print -u2 -- "ERROR: ewallis-terminal-doctor must run as the user, not root."
+  print -u2 -- "ERROR: ew doctor must run as the user, not root."
   exit 64
 fi
 
@@ -51,8 +53,9 @@ done
 # ─── Self-test: sandboxed install→theme→uninstall cycle ────────────────────
 if (( SELF_TEST )); then
   print -P -- "%F{141}==>%f Self-test (sandboxed install → theme → uninstall)"
-  PKG_ROOT_FOR_TEST="/usr/local/share/ewallis-terminal"
-  [[ -d "$PKG_ROOT_FOR_TEST" ]] || { print -u2 -- "ERROR: pkg not installed"; exit 1; }
+  PKG_ROOT_FOR_TEST="${EWALLIS_PKG_ROOT:-/usr/local/share/ewallis-terminal}"
+  [[ -d "$PKG_ROOT_FOR_TEST" ]] || { print -u2 -- "ERROR: pkg not found at $PKG_ROOT_FOR_TEST"; exit 1; }
+  [[ -x "$PKG_ROOT_FOR_TEST/bin/ew-setup" ]] || { print -u2 -- "ERROR: ew-setup missing (need v2.1.0+); reinstall the pkg"; exit 1; }
 
   sandbox=$(mktemp -d "/tmp/ewallis-selftest.XXXXXX")
   trap "/bin/rm -rf '$sandbox' 2>/dev/null" EXIT INT TERM
@@ -72,7 +75,7 @@ if (( SELF_TEST )); then
 
   step "install (mocha/B)" env HOME="$sandbox/home" USER="testuser" \
     EWALLIS_PKG_ROOT="$PKG_ROOT_FOR_TEST" \
-    /bin/zsh "$PKG_ROOT_FOR_TEST/bin/ewallis-terminal-setup-user" --variant mocha --style B
+    /bin/zsh "$PKG_ROOT_FOR_TEST/bin/ew-setup" --variant mocha --style B
   step "state.toml deployed" test -f "$sandbox/home/.config/ewallis-terminal/state.toml"
   step "plugin-theme.zsh deployed" test -f "$sandbox/home/.config/ewallis-terminal/plugin-theme.zsh"
   step "iTerm2 profile deployed" test -f "$sandbox/home/Library/Application Support/iTerm2/DynamicProfiles/ewallis-terminal.json"
@@ -81,12 +84,12 @@ if (( SELF_TEST )); then
 
   step "switch to latte" env HOME="$sandbox/home" USER="testuser" \
     EWALLIS_PKG_ROOT="$PKG_ROOT_FOR_TEST" \
-    /bin/zsh "$PKG_ROOT_FOR_TEST/bin/ewallis-theme" latte
+    /bin/zsh "$PKG_ROOT_FOR_TEST/bin/ew-theme" latte
   step "plugin-theme flipped to latte" grep -q 'catppuccin_latte' "$sandbox/home/.config/ewallis-terminal/plugin-theme.zsh"
 
   step "uninstall (user phase)" env HOME="$sandbox/home" USER="testuser" \
     EWALLIS_PKG_ROOT="$PKG_ROOT_FOR_TEST" \
-    /bin/zsh "$PKG_ROOT_FOR_TEST/bin/ewallis-terminal-uninstall"
+    /bin/zsh "$PKG_ROOT_FOR_TEST/bin/ew-uninstall"
   step "state.toml removed" sh -c "[ ! -f '$sandbox/home/.config/ewallis-terminal/state.toml' ]"
   step "marker block stripped" sh -c "! grep -q '>>> ewallis-terminal' '$sandbox/home/.zshrc' 2>/dev/null"
 

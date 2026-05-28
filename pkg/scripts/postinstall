@@ -10,7 +10,7 @@ set -u
 export LANG="${LANG:-en_US.UTF-8}"
 
 PKG_ROOT="/usr/local/share/ewallis-terminal"
-SETUP_USER="$PKG_ROOT/bin/ewallis-terminal-setup-user"
+SETUP_USER="$PKG_ROOT/bin/ew-setup"
 
 log() { /bin/echo "[ewallis-terminal postinstall] $*"; }
 
@@ -66,13 +66,25 @@ log "running per-user setup as $CONSOLE_USER (HOME=$USER_HOME)"
 # Symlink the per-user setup + uninstall scripts into /usr/local/bin so they
 # appear in PATH. Use -h to overwrite existing symlinks safely.
 /bin/mkdir -p /usr/local/bin
-/bin/ln -sfh "$PKG_ROOT/bin/ew"                          /usr/local/bin/ew                          2>/dev/null || true
-/bin/ln -sfh "$PKG_ROOT/bin/ewallis-terminal-setup-user" /usr/local/bin/ewallis-terminal-setup-user 2>/dev/null || true
-/bin/ln -sfh "$PKG_ROOT/bin/ewallis-terminal-uninstall"  /usr/local/bin/ewallis-terminal-uninstall  2>/dev/null || true
-/bin/ln -sfh "$PKG_ROOT/bin/ewallis-terminal-doctor"     /usr/local/bin/ewallis-terminal-doctor     2>/dev/null || true
-/bin/ln -sfh "$PKG_ROOT/bin/ewallis-welcome"             /usr/local/bin/ewallis-welcome             2>/dev/null || true
-/bin/ln -sfh "$PKG_ROOT/bin/ewallis-theme"               /usr/local/bin/ewallis-theme               2>/dev/null || true
-/bin/ln -sfh "$PKG_ROOT/bin/toggle-starship-theme"       /usr/local/bin/toggle-starship-theme       2>/dev/null || true
+# v2.1.0+: only `ew` lands on PATH. All other functions are subcommands.
+/bin/ln -sfh "$PKG_ROOT/bin/ew" /usr/local/bin/ew 2>/dev/null || true
+
+# Legacy cleanup — remove pre-v2.1 symlinks and binaries that have been
+# unified under `ew <subcommand>`.
+for legacy in /usr/local/bin/ewallis-terminal-setup-user \
+              /usr/local/bin/ewallis-terminal-uninstall \
+              /usr/local/bin/ewallis-terminal-doctor \
+              /usr/local/bin/ewallis-welcome \
+              /usr/local/bin/ewallis-theme \
+              /usr/local/bin/toggle-starship-theme; do
+  [[ -L "$legacy" || -e "$legacy" ]] && /bin/rm -f "$legacy" 2>/dev/null || true
+done
+# Same in the pkg payload dir (pkgutil doesn't auto-delete renamed files)
+for legacy_bin in ewallis-terminal-setup-user ewallis-terminal-uninstall \
+                  ewallis-terminal-doctor ewallis-welcome ewallis-theme \
+                  toggle-starship-theme; do
+  /bin/rm -f "$PKG_ROOT/bin/$legacy_bin" 2>/dev/null || true
+done
 
 log "done"
 exit 0
