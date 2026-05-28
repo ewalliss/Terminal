@@ -1,0 +1,268 @@
+#!/usr/bin/env zsh
+# ─────────────────────────────────────────────────────────────────────────────
+# ewallis-terminal-doctor — check + offer to install missing dependencies.
+#
+# Checks (in order):
+#   1. Homebrew         — if missing, point user to brew.sh (we don't auto-curl).
+#   2. starship         — `brew install starship`
+#   3. fzf              — `brew install fzf` (+ caches `brew --prefix fzf`)
+#   4. JetBrains Mono Nerd Font — `brew install --cask font-jetbrains-mono-nerd-font`
+#   5. iTerm2           — soft-warn only; user may prefer Terminal.app.
+#
+# Removes ~/.local/share/ewallis-terminal/needs-doctor on success.
+#
+# Usage:
+#   ewallis-terminal-doctor              # interactive
+#   ewallis-terminal-doctor --auto       # install everything missing, no prompt
+#   ewallis-terminal-doctor --check-only # report status; exit = number missing
+# ─────────────────────────────────────────────────────────────────────────────
+set -uo pipefail
+IFS=$'\n\t'
+export LANG="${LANG:-en_US.UTF-8}"
+
+# Refuse to run as root — brew refuses anyway, and we'd write to /var/root.
+if [[ "$(id -u)" -eq 0 ]]; then
+  print -u2 -- "ERROR: ewallis-terminal-doctor must run as the user, not root."
+  exit 64
+fi
+
+PKG_NAME="ewallis-terminal"
+STATE_DIR="$HOME/.local/share/$PKG_NAME"
+CFG_DIR="$HOME/.config/$PKG_NAME"
+NEEDS_DOCTOR="$STATE_DIR/needs-doctor"
+FZF_PREFIX_CACHE="$CFG_DIR/fzf-prefix"
+
+AUTO=0
+CHECK_ONLY=0
+SELF_TEST=0
+while (( $# > 0 )); do
+  case "$1" in
+    --auto)       AUTO=1; shift ;;
+    --check-only) CHECK_ONLY=1; shift ;;
+    --self-test)  SELF_TEST=1; shift ;;
+    -h|--help)
+      print -- "Usage: $0 [--auto|--check-only|--self-test]"
+      exit 0
+      ;;
+    *) print -u2 -- "unknown arg: $1"; exit 2 ;;
+  esac
+done
+
+# ─── Self-test: sandboxed install→theme→uninstall cycle ────────────────────
+if (( SELF_TEST )); then
+  print -P -- "%F{141}==>%f Self-test (sandboxed install → theme → uninstall)"
+  PKG_ROOT_FOR_TEST="/usr/local/share/ewallis-terminal"
+  [[ -d "$PKG_ROOT_FOR_TEST" ]] || { print -u2 -- "ERROR: pkg not installed"; exit 1; }
+
+  sandbox=$(mktemp -d "/tmp/ewallis-selftest.XXXXXX")
+  trap "/bin/rm -rf '$sandbox' 2>/dev/null" EXIT INT TERM
+  mkdir -p "$sandbox/home"
+
+  pass=0; fail=0
+  step() {
+    local desc="$1"; shift
+    if "$@" >/dev/null 2>&1; then
+      print -P -- "  %F{114}✓%f $desc"
+      (( pass++ ))
+    else
+      print -P -- "  %F{196}✗%f $desc"
+      (( fail++ ))
+    fi
+  }
+
+  step "install (mocha/B)" env HOME="$sandbox/home" USER="testuser" \
+    EWALLIS_PKG_ROOT="$PKG_ROOT_FOR_TEST" \
+    /bin/zsh "$PKG_ROOT_FOR_TEST/bin/ewallis-terminal-setup-user" --variant mocha --style B
+  step "state.toml deployed" test -f "$sandbox/home/.config/ewallis-terminal/state.toml"
+  step "plugin-theme.zsh deployed" test -f "$sandbox/home/.config/ewallis-terminal/plugin-theme.zsh"
+  step "iTerm2 profile deployed" test -f "$sandbox/home/Library/Application Support/iTerm2/DynamicProfiles/ewallis-terminal.json"
+  step "marker block injected" grep -q '>>> ewallis-terminal' "$sandbox/home/.zshrc"
+  step "schema_version=2 in state" grep -q 'schema_version = 2' "$sandbox/home/.config/ewallis-terminal/state.toml"
+
+  step "switch to latte" env HOME="$sandbox/home" USER="testuser" \
+    EWALLIS_PKG_ROOT="$PKG_ROOT_FOR_TEST" \
+    /bin/zsh "$PKG_ROOT_FOR_TEST/bin/ewallis-theme" latte
+  step "plugin-theme flipped to latte" grep -q 'catppuccin_latte' "$sandbox/home/.config/ewallis-terminal/plugin-theme.zsh"
+
+  step "uninstall (user phase)" env HOME="$sandbox/home" USER="testuser" \
+    EWALLIS_PKG_ROOT="$PKG_ROOT_FOR_TEST" \
+    /bin/zsh "$PKG_ROOT_FOR_TEST/bin/ewallis-terminal-uninstall"
+  step "state.toml removed" sh -c "[ ! -f '$sandbox/home/.config/ewallis-terminal/state.toml' ]"
+  step "marker block stripped" sh -c "! grep -q '>>> ewallis-terminal' '$sandbox/home/.zshrc' 2>/dev/null"
+
+  print -- ""
+  if (( fail == 0 )); then
+    print -P -- "  %F{114}✓%f $pass passed, 0 failed"
+    exit 0
+  else
+    print -P -- "  %F{196}✗%f $pass passed, $fail FAILED"
+    exit 1
+  fi
+fi
+
+say()  { print -P -- "%F{141}==>%f $*"; }
+ok()   { print -P -- "%F{114}  ✓%f $*"; }
+miss() { print -P -- "%F{196}  ✗%f $*"; }
+warn() { print -P -- "%F{214}  !%f $*"; }
+note() { print -P -- "%F{245}    $*%f"; }
+
+# ─── Detect Homebrew ────────────────────────────────────────────────────────
+HAVE_BREW=0
+BREW=""
+if command -v brew >/dev/null 2>&1; then
+  HAVE_BREW=1
+  BREW="$(command -v brew)"
+elif [[ -x /opt/homebrew/bin/brew ]]; then
+  HAVE_BREW=1
+  BREW=/opt/homebrew/bin/brew
+elif [[ -x /usr/local/bin/brew ]]; then
+  HAVE_BREW=1
+  BREW=/usr/local/bin/brew
+fi
+
+# ─── Probe each dependency ──────────────────────────────────────────────────
+typeset -a MISSING=()
+typeset -a INSTALL_CMDS=()
+
+say "Checking dependencies"
+
+if (( HAVE_BREW )); then
+  ok "Homebrew  ($BREW)"
+else
+  miss "Homebrew"
+  note "Install from: https://brew.sh"
+  MISSING+=("brew")
+fi
+
+if command -v starship >/dev/null 2>&1; then
+  ok "starship  ($(starship --version 2>/dev/null | head -1))"
+else
+  miss "starship"
+  note "Install:  brew install starship"
+  MISSING+=("starship")
+  INSTALL_CMDS+=("$BREW install starship")
+fi
+
+if command -v fzf >/dev/null 2>&1; then
+  ok "fzf       ($(fzf --version 2>/dev/null | head -1))"
+else
+  miss "fzf"
+  note "Install:  brew install fzf"
+  MISSING+=("fzf")
+  INSTALL_CMDS+=("$BREW install fzf")
+fi
+
+# Font check via Spotlight (fast). Fall back to file scan.
+FONT_FOUND=0
+if command -v mdfind >/dev/null 2>&1; then
+  if [[ -n "$(mdfind 'kMDItemFSName == "JetBrainsMonoNerdFontMono-Regular.ttf" || kMDItemFSName == "JetBrainsMonoNFM-Regular.ttf"' 2>/dev/null | head -1)" ]]; then
+    FONT_FOUND=1
+  fi
+fi
+if (( ! FONT_FOUND )); then
+  for d in "$HOME/Library/Fonts" "/Library/Fonts" "/System/Library/Fonts"; do
+    if [[ -d "$d" ]] && ls "$d"/JetBrainsMonoN*.ttf >/dev/null 2>&1; then
+      FONT_FOUND=1
+      break
+    fi
+  done
+fi
+if (( FONT_FOUND )); then
+  ok "JetBrains Mono Nerd Font"
+else
+  miss "JetBrains Mono Nerd Font"
+  note "Install:  brew install --cask font-jetbrains-mono-nerd-font"
+  MISSING+=("font")
+  INSTALL_CMDS+=("$BREW install --cask font-jetbrains-mono-nerd-font")
+fi
+
+if [[ -d /Applications/iTerm.app ]]; then
+  ok "iTerm2"
+else
+  warn "iTerm2 not found at /Applications/iTerm.app"
+  note "Optional — Terminal.app works too, but you'll lose the custom profile."
+  note "Install:  brew install --cask iterm2"
+fi
+
+# ─── Cache brew --prefix fzf so .zshrc doesn't pay 80ms every shell launch ──
+if command -v fzf >/dev/null 2>&1 && (( HAVE_BREW )); then
+  mkdir -p "$CFG_DIR"
+  FZF_PREFIX="$($BREW --prefix fzf 2>/dev/null || true)"
+  if [[ -n "$FZF_PREFIX" && -d "$FZF_PREFIX" ]]; then
+    print -r -- "$FZF_PREFIX" > "$FZF_PREFIX_CACHE.tmp.$$"
+    mv -f "$FZF_PREFIX_CACHE.tmp.$$" "$FZF_PREFIX_CACHE"
+  fi
+fi
+
+# ─── Summary ────────────────────────────────────────────────────────────────
+print -- ""
+n_missing=${#MISSING[@]}
+n_installable=${#INSTALL_CMDS[@]}
+
+if (( n_missing == 0 )); then
+  ok "All dependencies satisfied."
+  /bin/rm -f "$NEEDS_DOCTOR"
+  exit 0
+fi
+
+if (( CHECK_ONLY )); then
+  print -- "$n_missing dependency(ies) missing."
+  exit "$n_missing"
+fi
+
+# Homebrew itself is missing → we cannot proceed automatically.
+if (( ! HAVE_BREW )); then
+  warn "Install Homebrew first, then re-run: ewallis-terminal-doctor"
+  warn "https://brew.sh"
+  exit 1
+fi
+
+if (( n_installable == 0 )); then
+  warn "Nothing brew can fix here."
+  exit 1
+fi
+
+print -- "$n_missing dependency(ies) missing. The following will be installed:"
+for cmd in "${INSTALL_CMDS[@]}"; do
+  print -P -- "  %F{141}\$%f $cmd"
+done
+print -- ""
+
+if (( ! AUTO )); then
+  printf "Proceed? [Y/n] "
+  read -r REPLY < /dev/tty
+  case "$REPLY" in
+    n|N|no|No|NO) print -- "Aborted."; exit 1 ;;
+  esac
+fi
+
+# ─── Run installs ────────────────────────────────────────────────────────────
+say "Installing"
+fail_count=0
+for cmd in "${INSTALL_CMDS[@]}"; do
+  if ! eval "$cmd"; then
+    fail_count=$((fail_count + 1))
+    warn "failed: $cmd"
+  fi
+done
+
+# Re-cache fzf prefix in case fzf was just installed
+if command -v fzf >/dev/null 2>&1; then
+  mkdir -p "$CFG_DIR"
+  FZF_PREFIX="$($BREW --prefix fzf 2>/dev/null || true)"
+  if [[ -n "$FZF_PREFIX" && -d "$FZF_PREFIX" ]]; then
+    print -r -- "$FZF_PREFIX" > "$FZF_PREFIX_CACHE.tmp.$$"
+    mv -f "$FZF_PREFIX_CACHE.tmp.$$" "$FZF_PREFIX_CACHE"
+    ok "cached fzf prefix → $FZF_PREFIX_CACHE"
+  fi
+fi
+
+print -- ""
+if (( fail_count == 0 )); then
+  ok "Done. Open a new terminal:  exec zsh"
+  /bin/rm -f "$NEEDS_DOCTOR"
+  exit 0
+else
+  warn "$fail_count install(s) failed. Re-run after fixing."
+  exit 1
+fi

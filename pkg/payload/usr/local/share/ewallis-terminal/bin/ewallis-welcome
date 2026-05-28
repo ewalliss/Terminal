@@ -1,0 +1,268 @@
+#!/usr/bin/env zsh
+# ─────────────────────────────────────────────────────────────────────────────
+# ewallis-welcome — Catppuccin-themed welcome banner.
+#
+# Inspired by the Claude Code v2 LogoV2 layout:
+#   ╭ EwallisTerminal v1.0.0 ─────────────────────────────────────────────╮
+#   │   Welcome back, ewallis! │  Tips                                    │
+#   │       ┌──robot──┐        │  ─────────────────────                   │
+#   │       │ • • ▏  │         │  What's new                              │
+#   │   palette · cwd          │  • …                                     │
+#   ╰──────────────────────────┴──────────────────────────────────────────╯
+#
+# Colors come from the active palette in ~/.config/ewallis-terminal/state.toml.
+# Falls back to mocha if state file is missing.
+#
+# Usage:
+#   ewallis-welcome              # full banner
+#   ewallis-welcome --compact    # single-line greeting
+#   ewallis-welcome --palette latte    # preview a palette without switching
+# ─────────────────────────────────────────────────────────────────────────────
+emulate -L zsh
+setopt no_unset pipefail
+export LANG="${LANG:-en_US.UTF-8}"
+
+# ─── Arg parsing ─────────────────────────────────────────────────────────────
+COMPACT=0
+PREVIEW_PALETTE=""
+while (( $# > 0 )); do
+  case "$1" in
+    --compact)  COMPACT=1; shift ;;
+    --palette)  PREVIEW_PALETTE="${2:?}"; shift 2 ;;
+    -h|--help)
+      sed -n '3,22p' "$0" | sed 's/^# \?//'
+      exit 0
+      ;;
+    *) print -u2 -- "unknown arg: $1"; exit 2 ;;
+  esac
+done
+
+# ─── Palette resolution ──────────────────────────────────────────────────────
+PALETTE="mocha"
+STYLE="B"
+STATE_FILE="${EWALLIS_STATE_FILE:-$HOME/.config/ewallis-terminal/state.toml}"
+if [[ -f "$STATE_FILE" ]]; then
+  while IFS='=' read -r k v; do
+    k="${k// /}"; v="${v// /}"; v="${v//\"/}"
+    case "$k" in
+      palette) PALETTE="$v" ;;
+      style)   STYLE="$v" ;;
+    esac
+  done < "$STATE_FILE"
+fi
+[[ -n "$PREVIEW_PALETTE" ]] && PALETTE="$PREVIEW_PALETTE"
+
+# Map palette → hex colors (kept in sync with build-plugin-theme.py).
+case "$PALETTE" in
+  latte)
+    C_TEXT="#4c4f69"; C_DIM="#8c8fa1"; C_BORDER="#fe640b"
+    C_TITLE="#fe640b"; C_HEAD="#fe640b"; C_ACCENT="#dc8a78"
+    C_EYE="#d20f39"; C_BG="#eff1f5"
+    ;;
+  frappe)
+    C_TEXT="#c6d0f5"; C_DIM="#838ba7"; C_BORDER="#ef9f76"
+    C_TITLE="#ef9f76"; C_HEAD="#ef9f76"; C_ACCENT="#f2d5cf"
+    C_EYE="#e78284"; C_BG="#303446"
+    ;;
+  macchiato)
+    C_TEXT="#cad3f5"; C_DIM="#8087a2"; C_BORDER="#f5a97f"
+    C_TITLE="#f5a97f"; C_HEAD="#f5a97f"; C_ACCENT="#f4dbd6"
+    C_EYE="#ed8796"; C_BG="#24273a"
+    ;;
+  mocha|*)
+    PALETTE="mocha"
+    C_TEXT="#cdd6f4"; C_DIM="#7f849c"; C_BORDER="#fab387"
+    C_TITLE="#fab387"; C_HEAD="#fab387"; C_ACCENT="#f5e0dc"
+    C_EYE="#f38ba8"; C_BG="#1e1e2e"
+    ;;
+esac
+
+# ─── ANSI helpers ────────────────────────────────────────────────────────────
+hex_to_rgb() {
+  # hex_to_rgb "#rrggbb" → "R;G;B"
+  local hex="${1#\#}"
+  printf '%d;%d;%d' "$((16#${hex:0:2}))" "$((16#${hex:2:2}))" "$((16#${hex:4:2}))"
+}
+fg() { printf '\033[38;2;%sm' "$(hex_to_rgb "$1")"; }
+bold() { printf '\033[1m'; }
+dim()  { printf '\033[2m'; }
+rst()  { printf '\033[0m'; }
+
+# Width-safe printer: prints a colored string then resets, without changing
+# the visible width count.
+say() { printf '%b%s%b' "$1" "$2" "$(rst)"; }
+
+# ─── Compact mode (one-liner greeting) ───────────────────────────────────────
+if (( COMPACT )); then
+  printf '%s%s%s ' "$(fg "$C_ACCENT")$(bold)" "" "$(rst)"
+  printf '%sWelcome back, %s%s%s · ' "$(fg "$C_TEXT")" "$(bold)" "${USER:-friend}" "$(rst)"
+  printf '%spalette %s%s\n' "$(fg "$C_DIM")" "$PALETTE" "$(rst)"
+  exit 0
+fi
+
+# ─── Gather content ──────────────────────────────────────────────────────────
+VERSION_FILE="${EWALLIS_PKG_ROOT:-/usr/local/share/ewallis-terminal}/VERSION"
+VERSION="1.0.0"
+[[ -r "$VERSION_FILE" ]] && VERSION="$(<"$VERSION_FILE")"
+
+CWD="${PWD/#$HOME/~}"
+# Truncate cwd if too long
+(( ${#CWD} > 32 )) && CWD="…${CWD: -31}"
+
+USERNAME="${USER:-friend}"
+TITLE=" EwallisTerminal v${VERSION} "
+WELCOME="Welcome back, ${USERNAME}!"
+SUBLINE="catppuccin_${PALETTE} · style ${STYLE}"
+
+# ─── Layout dimensions ───────────────────────────────────────────────────────
+COLS="${COLUMNS:-$(tput cols 2>/dev/null || echo 100)}"
+(( COLS < 60 )) && COLS=60
+BOX_W=$(( COLS > 110 ? 110 : COLS ))
+INNER_W=$(( BOX_W - 2 ))      # subtract the two side borders
+LEFT_W=34
+RIGHT_W=$(( INNER_W - LEFT_W - 1 ))   # -1 for the vertical divider
+
+# ─── Box-drawing chars ───────────────────────────────────────────────────────
+TL="╭"; TR="╮"; BL="╰"; BR="╯"; H="─"; V="│"
+T_DOWN="┬"; T_UP="┴"
+
+# Repeat a char N times
+rep() {
+  local s="$1" n="$2" out=""
+  while (( n-- > 0 )); do out+="$s"; done
+  printf '%s' "$out"
+}
+
+# ─── Top border with inset title ─────────────────────────────────────────────
+# ╭─ TITLE ──────────────────────────────╮
+print -n -- "$(fg "$C_BORDER")$TL$H"
+print -n -- "$(fg "$C_TITLE")$(bold)${TITLE}$(rst)$(fg "$C_BORDER")"
+remain=$(( INNER_W - 1 - ${#TITLE} ))
+(( remain < 0 )) && remain=0
+print -n -- "$(rep "$H" "$remain")"
+print -- "$TR$(rst)"
+
+# ─── Left-column rows (welcome, mascot, sub) ─────────────────────────────────
+typeset -a LEFT_ROWS
+LEFT_ROWS=()
+LEFT_ROWS+=("")
+LEFT_ROWS+=("$(fg "$C_TEXT")$(bold)${WELCOME}$(rst)")
+LEFT_ROWS+=("")
+# Mascot — Catppuccin-recolored, faithful to claude_code robot sprite
+mascot_frame() { fg "$C_ACCENT"; printf '%s' "$1"; rst; }
+mascot_eyes()  { fg "$C_EYE"; printf '%s' "$1"; rst; }
+m1="$(mascot_frame '   .[')$(mascot_frame '||')$(mascot_frame '].   ')"
+m2="$(mascot_frame '  [ ')$(mascot_eyes '●')$(mascot_frame '  ')$(mascot_eyes '●')$(mascot_frame ' ]  ')"
+m3="$(mascot_frame '  [ ')$(fg "$C_DIM")$(printf '====')$(rst)$(mascot_frame ' ]  ')"
+m4="$(mascot_frame '  `------´  ')"
+LEFT_ROWS+=("$m1")
+LEFT_ROWS+=("$m2")
+LEFT_ROWS+=("$m3")
+LEFT_ROWS+=("$m4")
+LEFT_ROWS+=("")
+LEFT_ROWS+=("$(fg "$C_DIM")${SUBLINE}$(rst)")
+LEFT_ROWS+=("$(fg "$C_DIM")${CWD}$(rst)")
+LEFT_ROWS+=("")
+
+# Visible-width helpers: track plain-text width separately because ANSI
+# escapes have zero visible width but inflate ${#var}.
+typeset -a LEFT_PLAIN
+LEFT_PLAIN=()
+LEFT_PLAIN+=("")
+LEFT_PLAIN+=("${WELCOME}")
+LEFT_PLAIN+=("")
+LEFT_PLAIN+=("   .[||].   ")
+LEFT_PLAIN+=("  [ ●  ● ]  ")
+LEFT_PLAIN+=("  [ ==== ]  ")
+LEFT_PLAIN+=("  \`------´  ")
+LEFT_PLAIN+=("")
+LEFT_PLAIN+=("${SUBLINE}")
+LEFT_PLAIN+=("${CWD}")
+LEFT_PLAIN+=("")
+
+# Truncate plain to LEFT_W for visible-width math (mascot ● counts as 1)
+visible_width() {
+  # Count chars but treat ● as 1 (it is in zsh's terminal width)
+  local s="$1"
+  print -- "${#s}"
+}
+
+# ─── Right-column rows ───────────────────────────────────────────────────────
+typeset -a RIGHT_ROWS RIGHT_PLAIN
+RIGHT_ROWS=()
+RIGHT_PLAIN=()
+
+push_right() {
+  RIGHT_ROWS+=("$1")
+  RIGHT_PLAIN+=("$2")
+}
+
+push_right "" ""
+H1="Tips for getting started"
+push_right "$(fg "$C_HEAD")$(bold)${H1}$(rst)" "$H1"
+T1="Switch theme:  ewallis-theme latte | frappe | macchiato | mocha"
+T2="Check deps:    ewallis-terminal-doctor"
+T3="Auto follow:   ewallis-theme --auto    (light/dark from macOS)"
+push_right "$(fg "$C_TEXT")${T1}$(rst)" "$T1"
+push_right "$(fg "$C_TEXT")${T2}$(rst)" "$T2"
+push_right "$(fg "$C_TEXT")${T3}$(rst)" "$T3"
+push_right "" ""
+
+# Inline separator inside the right column
+SEP_W=$(( RIGHT_W - 2 ))
+(( SEP_W < 1 )) && SEP_W=1
+SEP_LINE="$(rep "$H" "$SEP_W")"
+push_right "$(fg "$C_BORDER")$(dim)${SEP_LINE}$(rst)" "${SEP_LINE}"
+push_right "" ""
+
+H2="What's new"
+push_right "$(fg "$C_HEAD")$(bold)${H2}$(rst)" "$H2"
+N1="• Live theme switching — palette + iTerm2 + plugin colors flip instantly"
+N2="• Vendored zsh-autosuggestions + zsh-syntax-highlighting (offline-safe)"
+N3="• fzf bindings auto-loaded when installed via brew"
+N4="• ewallis-terminal-doctor diagnoses + brew-installs missing deps"
+push_right "$(fg "$C_TEXT")${N1}$(rst)" "$N1"
+push_right "$(fg "$C_TEXT")${N2}$(rst)" "$N2"
+push_right "$(fg "$C_TEXT")${N3}$(rst)" "$N3"
+push_right "$(fg "$C_TEXT")${N4}$(rst)" "$N4"
+push_right "" ""
+
+# ─── Pad helpers ─────────────────────────────────────────────────────────────
+# Print a string padded with spaces to a given visible width.
+pad_to() {
+  local colored="$1" plain="$2" width="$3"
+  local vw="${#plain}"
+  if (( vw > width )); then
+    # Truncate plain + drop coloring on truncated content (rare).
+    # zsh native substring: ${var[start,end]} — 1-based, inclusive.
+    plain="${plain[1,width]}"
+    printf '%s' "$plain"
+    return
+  fi
+  printf '%s' "$colored"
+  rep ' ' "$(( width - vw ))"
+}
+
+# ─── Render body rows ────────────────────────────────────────────────────────
+n_rows=${#LEFT_ROWS[@]}
+(( ${#RIGHT_ROWS[@]} > n_rows )) && n_rows=${#RIGHT_ROWS[@]}
+
+i=1
+while (( i <= n_rows )); do
+  L_C="${LEFT_ROWS[$i]:-}"
+  L_P="${LEFT_PLAIN[$i]:-}"
+  R_C="${RIGHT_ROWS[$i]:-}"
+  R_P="${RIGHT_PLAIN[$i]:-}"
+
+  printf '%s%s%s ' "$(fg "$C_BORDER")" "$V" "$(rst)"
+  pad_to "$L_C" "$L_P" "$(( LEFT_W - 1 ))"
+  printf '%s%s%s ' "$(fg "$C_BORDER")$(dim)" "$V" "$(rst)"
+  pad_to "$R_C" "$R_P" "$(( RIGHT_W - 1 ))"
+  printf '%s%s%s\n' "$(fg "$C_BORDER")" "$V" "$(rst)"
+  (( i++ ))
+done
+
+# ─── Bottom border ───────────────────────────────────────────────────────────
+print -n -- "$(fg "$C_BORDER")$BL"
+print -n -- "$(rep "$H" "$INNER_W")"
+print -- "$BR$(rst)"

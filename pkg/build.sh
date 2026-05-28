@@ -11,7 +11,7 @@ set -euo pipefail
 IFS=$'\n\t'
 export LANG="${LANG:-en_US.UTF-8}"
 
-PKG_VERSION="1.0.0"
+PKG_VERSION="2.0.0"
 PKG_ID="com.ewalliss.ewallis-terminal"
 PKG_NAME="EwallisTerminal"
 INSTALL_LOCATION="/"
@@ -62,6 +62,37 @@ for palette in latte frappe macchiato mocha; do
 done
 ok "iterm2/  (2 .itermcolors + 4 dynamic profile .json)"
 
+# Plugin theme files — one per palette (autosuggest + syntax-highlight + fzf colors)
+mkdir -p "$PKG_SHARE/plugin-themes"
+for palette in latte frappe macchiato mocha; do
+  /usr/bin/python3 "$SCRIPT_DIR/tools/build-plugin-theme.py" \
+    "$palette" "$PKG_SHARE/plugin-themes/plugin-theme-$palette.zsh"
+done
+ok "plugin-themes/  (4 palette themes)"
+
+# Vendor zsh plugins (pinned tags for reproducibility, .git stripped to shrink payload)
+mkdir -p "$PKG_SHARE/plugins"
+vendor_plugin() {
+  local name="$1" url="$2" ref="$3"
+  local dst="$PKG_SHARE/plugins/$name"
+  if [[ -d "$dst" && -f "$dst/.ewallis-version" ]]; then
+    local have="$(cat "$dst/.ewallis-version")"
+    if [[ "$have" == "$ref" ]]; then
+      ok "plugins/$name (cached @ $ref)"
+      return 0
+    fi
+  fi
+  rm -rf "$dst"
+  /usr/bin/git clone --quiet --depth=1 --branch "$ref" "$url" "$dst" 2>/dev/null || {
+    err "git clone failed: $url @ $ref"; exit 1
+  }
+  rm -rf "$dst/.git"
+  print -- "$ref" > "$dst/.ewallis-version"
+  ok "plugins/$name @ $ref"
+}
+vendor_plugin zsh-autosuggestions     https://github.com/zsh-users/zsh-autosuggestions     v0.7.1
+vendor_plugin zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting 0.8.0
+
 # Validate dynamic-profile JSON before shipping (python3 ships with CLT)
 for json in "$PKG_SHARE"/iterm2/*.json; do
   if ! /usr/bin/python3 -m json.tool "$json" >/dev/null 2>&1; then
@@ -78,10 +109,22 @@ done
 ok "snippets/  (4 files)"
 
 # Validate bin scripts
-for b in ewallis-terminal-setup-user ewallis-terminal-uninstall ewallis-theme toggle-starship-theme; do
+for b in ew ewallis-terminal-setup-user ewallis-terminal-uninstall ewallis-theme ewallis-terminal-doctor ewallis-welcome toggle-starship-theme; do
   [[ -f "$PKG_SHARE/bin/$b" ]] || { err "missing bin: $b"; exit 1; }
 done
-ok "bin/  (4 scripts)"
+ok "bin/  (7 scripts)"
+
+# Validate vendored plugins
+for p in zsh-autosuggestions/zsh-autosuggestions.zsh zsh-syntax-highlighting/zsh-syntax-highlighting.zsh; do
+  [[ -f "$PKG_SHARE/plugins/$p" ]] || { err "missing plugin file: $p"; exit 1; }
+done
+ok "plugins/  (vendored)"
+
+# Validate plugin themes (zsh syntax check — catches typos in generated files)
+for t in "$PKG_SHARE"/plugin-themes/*.zsh; do
+  /bin/zsh -n "$t" 2>/dev/null || { err "plugin-theme syntax error: $t"; exit 1; }
+done
+ok "plugin-themes are valid zsh"
 
 # Ship a VERSION file so installed users can identify it
 print -- "$PKG_VERSION" > "$PKG_SHARE/VERSION"
@@ -131,8 +174,13 @@ ok "payload files: $n_payload"
 pkg_size=$(/usr/bin/stat -f%z "$OUT")
 ok "pkg size: $pkg_size bytes"
 
+# ─── 7. SHA256 sidecar for `ew update` verification ──────────────────────────
+/usr/bin/shasum -a 256 "$OUT" | /usr/bin/awk '{print $1}' > "$OUT.sha256"
+ok "sha256:    $(cat "$OUT.sha256")"
+
 print -- ""
 ok "Built: $OUT"
+print -P -- "  sha256:   %F{245}$(cat "$OUT.sha256")%f"
 print -P -- "  Install:  %F{141}sudo /usr/sbin/installer -pkg \"$OUT\" -target /%f"
 print -P -- "  Or:       %F{141}open \"$OUT\"%f  (uses Installer.app GUI)"
 print -P -- "  Uninstall:%F{141}ewallis-terminal-uninstall --system%f"

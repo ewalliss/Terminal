@@ -1,0 +1,230 @@
+#!/usr/bin/env zsh
+# ─────────────────────────────────────────────────────────────────────────────
+# ew — EwallisTerminal control CLI.
+#
+# Short, memorable entrypoint that dispatches to the longer-named tools.
+#
+# Usage:
+#   ew                      Show current status (palette, banner, deps).
+#   ew banner-on            Enable the welcome banner (shows on new shells).
+#   ew banner-off           Disable the welcome banner.
+#   ew banner-toggle        Flip whichever state it's currently in.
+#   ew welcome              Print the banner right now.
+#   ew theme [args…]        Passthrough to `ewallis-theme`.
+#   ew doctor [args…]       Passthrough to `ewallis-terminal-doctor`.
+#   ew update [--check]     Check GitHub Releases; install latest .pkg.
+#   ew uninstall [args…]    Passthrough to `ewallis-terminal-uninstall`.
+#   ew help                 Show this help.
+#   ew version              Show installed version.
+# ─────────────────────────────────────────────────────────────────────────────
+emulate -L zsh
+setopt no_unset pipefail
+export LANG="${LANG:-en_US.UTF-8}"
+
+# Resolve our own script path BEFORE entering any function (in zsh, $0 inside
+# a function is the function name, not the script).
+SCRIPT_PATH="${0:A}"
+
+PKG_ROOT="${EWALLIS_PKG_ROOT:-/usr/local/share/ewallis-terminal}"
+CFG_DIR="$HOME/.config/ewallis-terminal"
+BANNER_OFF_FLAG="$CFG_DIR/banner.disabled"
+STATE_FILE="$CFG_DIR/state.toml"
+
+say()  { print -P -- "%F{141}==>%f $*"; }
+ok()   { print -P -- "%F{114}  ✓%f $*"; }
+info() { print -P -- "%F{245}    $*%f"; }
+warn() { print -P -- "%F{214}  !%f $*"; }
+err()  { print -u2 -P -- "%F{196}  ✗%f $*"; }
+
+usage() {
+  sed -n '3,18p' "$SCRIPT_PATH" | sed -E 's/^# ?//'
+}
+
+# ─── ew update ───────────────────────────────────────────────────────────────
+do_update() {
+  local check_only=0
+  [[ "${1:-}" == "--check" ]] && check_only=1
+
+  # Resolve repo: env override > config file > built-in default
+  local repo="${EWALLIS_UPDATE_REPO:-}"
+  if [[ -z "$repo" && -r "$PKG_ROOT/update-source.toml" ]]; then
+    repo="$(grep -E '^repo' "$PKG_ROOT/update-source.toml" | cut -d'"' -f2)"
+  fi
+  [[ -z "$repo" ]] && { err "no update source configured"; return 1; }
+
+  command -v curl >/dev/null 2>&1 || { err "curl not found"; return 1; }
+  command -v python3 >/dev/null 2>&1 || { err "python3 not found"; return 1; }
+
+  say "Checking $repo for updates"
+  local api="https://api.github.com/repos/$repo/releases/latest"
+  local json
+  if ! json="$(curl -fsSL --max-time 15 "$api" 2>/dev/null)"; then
+    err "could not reach $api"
+    info "check your network or the repo name in $PKG_ROOT/update-source.toml"
+    return 1
+  fi
+
+  # Parse JSON — single python3 invocation extracts tag + asset URLs as TSV.
+  local parsed
+  parsed="$(python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+tag = d.get("tag_name", "").lstrip("v")
+pkg_url = sha_url = ""
+for a in d.get("assets", []):
+    n = a.get("name", "")
+    if n.endswith(".pkg.sha256"):
+        sha_url = a.get("browser_download_url", "")
+    elif n.endswith(".pkg"):
+        pkg_url = a.get("browser_download_url", "")
+print(f"{tag}\t{pkg_url}\t{sha_url}")
+' <<< "$json")" || { err "failed to parse GitHub API response"; return 1; }
+
+  local latest pkg_url sha_url
+  IFS=$'\t' read -r latest pkg_url sha_url <<< "$parsed"
+
+  [[ -z "$latest" ]] && { err "no releases found at $repo"; return 1; }
+  [[ -z "$pkg_url" ]] && { err "release $latest has no .pkg asset"; return 1; }
+
+  local current="$(<"$PKG_ROOT/VERSION")"
+  current="${current//[$'\t\r\n ']/}"
+
+  print -- ""
+  print -P -- "  installed: %F{245}$current%f"
+  print -P -- "  latest:    %F{114}$latest%f"
+  print -- ""
+
+  if [[ "$current" == "$latest" ]]; then
+    ok "already on latest"
+    return 0
+  fi
+
+  if (( check_only )); then
+    info "run \`ew update\` to install $latest"
+    return 0
+  fi
+
+  # Download to a tempdir
+  local tmp
+  tmp="$(mktemp -d /tmp/ewallis-update.XXXXXX)" || { err "mktemp failed"; return 1; }
+  trap "/bin/rm -rf '$tmp' 2>/dev/null" EXIT INT TERM
+
+  say "Downloading EwallisTerminal-$latest.pkg"
+  if ! curl -fL --progress-bar -o "$tmp/pkg.pkg" "$pkg_url"; then
+    err "download failed"; return 1
+  fi
+
+  # Verify sha256 — sidecar required for safety. If missing, refuse to install.
+  if [[ -z "$sha_url" ]]; then
+    err "release $latest has no .pkg.sha256 sidecar — refusing to install unverified pkg"
+    info "the release uploader must include EwallisTerminal-$latest.pkg.sha256"
+    return 1
+  fi
+
+  say "Verifying SHA256"
+  if ! curl -fsSL -o "$tmp/pkg.sha256" "$sha_url"; then
+    err "could not download .sha256 sidecar"; return 1
+  fi
+  local want got
+  want="$(awk '{print $1}' "$tmp/pkg.sha256")"
+  got="$(shasum -a 256 "$tmp/pkg.pkg" | awk '{print $1}')"
+  if [[ "$want" != "$got" ]]; then
+    err "SHA256 MISMATCH — refusing to install"
+    info "  expected: $want"
+    info "  got:      $got"
+    return 1
+  fi
+  ok "sha256 verified"
+
+  # Install — needs sudo
+  say "Installing (sudo password will be requested)"
+  if ! sudo /usr/sbin/installer -pkg "$tmp/pkg.pkg" -target / 2>&1 | sed 's/^/    /'; then
+    err "installer failed"; return 1
+  fi
+
+  print -- ""
+  ok "installed $latest"
+  info "open a new terminal tab to pick up the new version"
+}
+
+banner_status() {
+  [[ -f "$BANNER_OFF_FLAG" ]] && print -- "off" || print -- "on"
+}
+
+banner_off() {
+  mkdir -p "$CFG_DIR"
+  touch "$BANNER_OFF_FLAG"
+  ok "banner: off (won't appear in new shells)"
+  info "re-enable with: ew banner-on"
+}
+
+banner_on() {
+  /bin/rm -f "$BANNER_OFF_FLAG"
+  ok "banner: on (will appear in new shells)"
+  info "preview now:    ew welcome"
+}
+
+banner_toggle() {
+  if [[ -f "$BANNER_OFF_FLAG" ]]; then
+    banner_on
+  else
+    banner_off
+  fi
+}
+
+show_status() {
+  local palette="?" style="?"
+  if [[ -f "$STATE_FILE" ]]; then
+    while IFS='=' read -r k v; do
+      k="${k// /}"; v="${v// /}"; v="${v//\"/}"
+      case "$k" in
+        palette) palette="$v" ;;
+        style)   style="$v" ;;
+      esac
+    done < "$STATE_FILE"
+  fi
+
+  local version="unknown"
+  [[ -r "$PKG_ROOT/VERSION" ]] && version="$(<"$PKG_ROOT/VERSION")"
+
+  local banner_state
+  banner_state="$(banner_status)"
+
+  print -- ""
+  print -P -- "  %F{141}EwallisTerminal%f v$version"
+  print -- ""
+  print -P -- "  palette  %F{114}catppuccin_$palette%f"
+  print -P -- "  style    %F{114}$style%f"
+  case "$banner_state" in
+    on)  print -P -- "  banner   %F{114}on%f       (ew banner-off to disable)" ;;
+    off) print -P -- "  banner   %F{245}off%f      (ew banner-on to enable)" ;;
+  esac
+  print -- ""
+  print -P -- "  %F{245}commands: theme · welcome · doctor · banner-on/off · uninstall%f"
+  print -- ""
+}
+
+# ─── Dispatch ────────────────────────────────────────────────────────────────
+if (( $# == 0 )); then
+  show_status
+  exit 0
+fi
+
+cmd="$1"; shift
+case "$cmd" in
+  banner-on|banner_on)         banner_on ;;
+  banner-off|banner_off)       banner_off ;;
+  banner-toggle|banner_toggle) banner_toggle ;;
+  banner-status|banner_status) banner_status ;;
+  status)                      show_status ;;
+  welcome)                     exec "$PKG_ROOT/bin/ewallis-welcome" "$@" ;;
+  theme)                       exec "$PKG_ROOT/bin/ewallis-theme" "$@" ;;
+  doctor)                      exec "$PKG_ROOT/bin/ewallis-terminal-doctor" "$@" ;;
+  update)                      do_update "$@" ;;
+  uninstall)                   exec "$PKG_ROOT/bin/ewallis-terminal-uninstall" "$@" ;;
+  version|--version|-v)
+    [[ -r "$PKG_ROOT/VERSION" ]] && cat "$PKG_ROOT/VERSION" || print -- "unknown"
+    ;;
+  help|--help|-h) usage ;;
+  *) err "unknown subcommand: $cmd"; print -- ""; usage; exit 2 ;;
+esac

@@ -89,12 +89,25 @@ strip_marker_block() {
   fi
 }
 
-say "Stripping marker blocks"
-for rc in "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.config/fish/config.fish"; do
-  strip_marker_block "$rc"
-done
+# Legacy strip helper — old install.sh (pre-.pkg) injected an unmarked block.
+strip_legacy_lines() {
+  local rc="$1"
+  [[ -f "$rc" ]] || return 0
+  grep -qE '_esc_clear_line|_catppuccin_esc_clear_line' "$rc" 2>/dev/null || return 0
+  if (( DRY_RUN )); then
+    print -P -- "%F{245}  dry  strip legacy install.sh lines from $rc%f"
+    return 0
+  fi
+  /usr/bin/sed -i '' \
+    -e '/# Double-ESC to clear current line/d' \
+    -e '/_esc_clear_line/d' \
+    -e '/_catppuccin_esc_clear_line/d' \
+    "$rc" 2>/dev/null && ok "stripped legacy lines: $rc"
+}
 
 # 2. Restore from backups recorded in the manifest.
+# NOTE: restore runs BEFORE marker/legacy strip — otherwise restoring an old
+# backup brings any pre-existing injection right back, undoing our strip.
 if [[ -f "$MANIFEST" ]]; then
   say "Restoring from backups"
   while IFS=$'\t' read -r kind orig backup; do
@@ -134,6 +147,18 @@ if [[ -f "$MANIFEST" ]]; then
   done < "$MANIFEST"
 fi
 
+# 3b. Now (after restore) strip the marker block from any rc that had one,
+#     plus any legacy unmarked install.sh lines.
+say "Stripping marker blocks (post-restore)"
+for rc in "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.config/fish/config.fish"; do
+  strip_marker_block "$rc"
+done
+
+say "Stripping legacy install.sh lines (if any)"
+for rc in "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.bashrc" "$HOME/.bash_profile"; do
+  strip_legacy_lines "$rc"
+done
+
 # 4. Remove per-user state dir (manifest + backups). User can keep backups
 #    if they want — we leave the dir if DRY_RUN.
 say "Cleaning per-user state"
@@ -144,22 +169,78 @@ else
   ok "removed: $STATE_DIR"
 fi
 
+# 5. Best-effort: rmdir any now-empty dirs we created (~/.config/ewallis-terminal,
+#    iTerm2 DynamicProfiles only if empty). rmdir refuses non-empty dirs so this
+#    is safe against accidental data loss.
+say "Pruning empty directories"
+for d in \
+  "$HOME/.config/ewallis-terminal" \
+  "$HOME/Library/Application Support/iTerm2/DynamicProfiles"
+do
+  if [[ -d "$d" ]] && [[ -z "$(ls -A "$d" 2>/dev/null)" ]]; then
+    if (( DRY_RUN )); then
+      print -P -- "%F{245}  dry  rmdir $d%f"
+    else
+      /bin/rmdir -- "$d" 2>/dev/null && ok "rmdir: $d"
+    fi
+  fi
+done
+
 # ─── System phase (requires sudo) ────────────────────────────────────────────
 if (( DO_SYSTEM )); then
   print -- ""
   say "System phase — requires sudo"
 
+  # Symlinks postinstall created in /usr/local/bin/. Remove these BEFORE wiping
+  # $PKG_ROOT — otherwise they linger as broken symlinks that still show up in
+  # PATH lookups.
+  typeset -a SYSTEM_LINKS=(
+    /usr/local/bin/ew
+    /usr/local/bin/ewallis-terminal-setup-user
+    /usr/local/bin/ewallis-terminal-uninstall
+    /usr/local/bin/ewallis-terminal-doctor
+    /usr/local/bin/ewallis-welcome
+    /usr/local/bin/ewallis-theme
+    /usr/local/bin/toggle-starship-theme
+  )
+
   if (( DRY_RUN )); then
+    for lnk in "${SYSTEM_LINKS[@]}"; do
+      [[ -L "$lnk" || -e "$lnk" ]] && print -P -- "%F{245}  dry  sudo rm -f $lnk%f"
+    done
     print -P -- "%F{245}  dry  sudo rm -rf $PKG_ROOT%f"
     print -P -- "%F{245}  dry  sudo pkgutil --forget $PKG_ID%f"
   else
-    if [[ -d "$PKG_ROOT" ]]; then
+    # Only invoke sudo if there's actually work needing root, to keep the
+    # password prompt count minimal.
+    typeset -a links_to_remove=()
+    for lnk in "${SYSTEM_LINKS[@]}"; do
+      [[ -L "$lnk" || -e "$lnk" ]] && links_to_remove+=("$lnk")
+    done
+
+    needs_dir_rm=0
+    [[ -d "$PKG_ROOT" ]] && needs_dir_rm=1
+
+    needs_forget=0
+    /usr/sbin/pkgutil --pkg-info "$PKG_ID" >/dev/null 2>&1 && needs_forget=1
+
+    if (( ${#links_to_remove[@]} > 0 )); then
+      sudo /bin/rm -f -- "${links_to_remove[@]}"
+      for lnk in "${links_to_remove[@]}"; do ok "removed symlink: $lnk"; done
+    fi
+
+    if (( needs_dir_rm )); then
       sudo /bin/rm -rf -- "$PKG_ROOT"
       ok "removed: $PKG_ROOT"
     fi
-    if /usr/sbin/pkgutil --pkg-info "$PKG_ID" >/dev/null 2>&1; then
+
+    if (( needs_forget )); then
       sudo /usr/sbin/pkgutil --forget "$PKG_ID"
       ok "forgot receipt: $PKG_ID"
+    fi
+
+    if (( ${#links_to_remove[@]} == 0 && ! needs_dir_rm && ! needs_forget )); then
+      warn "system phase: nothing to do (already clean)"
     fi
   fi
 else

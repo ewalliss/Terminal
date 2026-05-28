@@ -197,9 +197,9 @@ with open(p, "w") as f:
 PY
 ok "iTerm2 → EwallisTerminal profile (palette: catppuccin_$VARIANT)"
 
-# ─── 3. Deploy theme switcher + legacy toggle ────────────────────────────────
+# ─── 3. Deploy theme switcher + doctor + legacy toggle ───────────────────────
 say "Installing CLI tools"
-for tool in ewallis-theme toggle-starship-theme; do
+for tool in ew ewallis-theme ewallis-terminal-doctor ewallis-welcome toggle-starship-theme; do
   SRC="$PKG_ROOT/bin/$tool"
   if [[ -f "$SRC" ]]; then
     deploy_file "$SRC" "$HOME/.local/bin/$tool"
@@ -208,10 +208,54 @@ for tool in ewallis-theme toggle-starship-theme; do
   fi
 done
 
+# ─── 3b. Deploy plugin theme for the chosen palette ─────────────────────────
+say "Installing plugin theme (catppuccin_$VARIANT)"
+SRC_PLUGIN_THEME="$PKG_ROOT/plugin-themes/plugin-theme-$VARIANT.zsh"
+if [[ -f "$SRC_PLUGIN_THEME" ]]; then
+  deploy_file "$SRC_PLUGIN_THEME" "$HOME/.config/ewallis-terminal/plugin-theme.zsh"
+  ok "plugin-theme.zsh → catppuccin_$VARIANT"
+else
+  warn "missing plugin theme: $SRC_PLUGIN_THEME"
+fi
+
+# ─── 3c. Probe deps, cache fzf prefix, set needs-doctor flag if needed ───────
+say "Probing dependencies"
+typeset -a missing_deps=()
+command -v starship >/dev/null 2>&1 || missing_deps+=("starship")
+command -v fzf >/dev/null 2>&1      || missing_deps+=("fzf")
+
+if command -v fzf >/dev/null 2>&1 && command -v brew >/dev/null 2>&1; then
+  fzf_prefix="$(brew --prefix fzf 2>/dev/null || true)"
+  if [[ -n "$fzf_prefix" && -d "$fzf_prefix" ]]; then
+    mkdir -p "$HOME/.config/ewallis-terminal"
+    print -r -- "$fzf_prefix" > "$HOME/.config/ewallis-terminal/fzf-prefix.tmp.$$"
+    mv -f "$HOME/.config/ewallis-terminal/fzf-prefix.tmp.$$" "$HOME/.config/ewallis-terminal/fzf-prefix"
+    manifest_record "deployed" "$HOME/.config/ewallis-terminal/fzf-prefix"
+    ok "cached fzf prefix → $fzf_prefix"
+  fi
+fi
+
+font_found=0
+if command -v mdfind >/dev/null 2>&1; then
+  [[ -n "$(mdfind 'kMDItemFSName == "JetBrainsMonoNerdFontMono-Regular.ttf" || kMDItemFSName == "JetBrainsMonoNFM-Regular.ttf"' 2>/dev/null | head -1)" ]] \
+    && font_found=1
+fi
+(( font_found )) || missing_deps+=("font-jetbrains-mono-nerd-font")
+
+if (( ${#missing_deps[@]} > 0 )); then
+  touch "$STATE_DIR/needs-doctor"
+  manifest_record "deployed" "$STATE_DIR/needs-doctor"
+  warn "missing deps: ${missing_deps[*]} — run 'ewallis-terminal-doctor' to fix"
+else
+  /bin/rm -f "$STATE_DIR/needs-doctor"
+  ok "all deps present"
+fi
+
 # ─── 4. Write initial state for ewallis-theme ────────────────────────────────
 mkdir -p "$HOME/.config/ewallis-terminal"
 {
   print -- "# Managed by ewallis-theme — edit via the CLI."
+  print -- "schema_version = 2"
   print -- "palette = \"$VARIANT\""
   print -- "style   = \"$STYLE\""
 } > "$HOME/.config/ewallis-terminal/state.toml.tmp"

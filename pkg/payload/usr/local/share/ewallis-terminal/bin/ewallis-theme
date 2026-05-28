@@ -40,6 +40,24 @@ ITERM_ACTIVE="$ITERM_DIR/ewallis-terminal.json"
 
 [[ -d "$PKG_ROOT" ]] || { print -u2 -- "ewallis-terminal not installed at $PKG_ROOT"; exit 70; }
 
+# ─── Concurrency lock — prevents torn writes if two shells run `ew theme` ────
+LOCK_DIR="$HOME/.config/ewallis-terminal/.lock"
+acquire_lock() {
+  local tries=0
+  mkdir -p "${LOCK_DIR:h}"
+  while (( tries < 50 )); do
+    if /bin/mkdir "$LOCK_DIR" 2>/dev/null; then
+      trap "/bin/rmdir '$LOCK_DIR' 2>/dev/null" EXIT INT TERM
+      return 0
+    fi
+    sleep 0.1
+    (( tries++ ))
+  done
+  print -u2 -- "ewallis-theme: another instance is running (lock: $LOCK_DIR)"
+  print -u2 -- "  remove with: rmdir '$LOCK_DIR'"
+  return 75
+}
+
 say()  { print -P -- "%F{141}==>%f $*"; }
 ok()   { print -P -- "%F{114}  ok%f $*"; }
 warn() { print -P -- "%F{214}  warn%f $*"; }
@@ -137,6 +155,9 @@ fi
 [[ "$STYLE" == "A" || "$STYLE" == "B" ]] \
   || { err "bad --style: $STYLE (must be A or B)"; exit 2; }
 
+# Acquire lock before any write
+acquire_lock || exit $?
+
 # ─── 1. Rewrite iTerm2 active profile ────────────────────────────────────────
 say "Updating iTerm2 dynamic profile"
 SRC_ITERM="$PKG_ROOT/iterm2/catppuccin-$PALETTE.json"
@@ -192,10 +213,25 @@ if [[ "$STYLE" != "$prev_style" ]]; then
   ok "starship.toml → style $STYLE"
 fi
 
-# ─── 3. Persist state ────────────────────────────────────────────────────────
+# ─── 3. Swap plugin theme (autosuggestions + syntax-highlighting + fzf colors) ─
+say "Updating plugin theme"
+SRC_PLUGIN_THEME="$PKG_ROOT/plugin-themes/plugin-theme-$PALETTE.zsh"
+DST_PLUGIN_THEME="$HOME/.config/ewallis-terminal/plugin-theme.zsh"
+if [[ -f "$SRC_PLUGIN_THEME" ]]; then
+  mkdir -p "${DST_PLUGIN_THEME:h}"
+  tmp="$DST_PLUGIN_THEME.tmp.$$"
+  cp -p "$SRC_PLUGIN_THEME" "$tmp"
+  mv -f "$tmp" "$DST_PLUGIN_THEME"
+  ok "plugin-theme.zsh → catppuccin_$PALETTE"
+else
+  warn "missing plugin theme: $SRC_PLUGIN_THEME"
+fi
+
+# ─── 4. Persist state ────────────────────────────────────────────────────────
 mkdir -p "$STATE_DIR"
 {
   print -- "# Managed by ewallis-theme — edit via the CLI."
+  print -- "schema_version = 2"
   print -- "palette = \"$PALETTE\""
   print -- "style   = \"$STYLE\""
 } > "$STATE_FILE.tmp.$$"

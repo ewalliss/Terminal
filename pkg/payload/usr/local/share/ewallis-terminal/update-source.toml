@@ -1,0 +1,9 @@
+# EwallisTerminal update source configuration.
+# Read by `ew update`. Override per-shell with env vars:
+#   EWALLIS_UPDATE_REPO=owner/repo
+#
+# The release MUST contain two assets:
+#   EwallisTerminal-X.Y.Z.pkg
+#   EwallisTerminal-X.Y.Z.pkg.sha256   (single line, hex sha256)
+repo = "ewalliss/Terminal"
+asset_glob = "EwallisTerminal-*.pkg"
