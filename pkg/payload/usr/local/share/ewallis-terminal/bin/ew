@@ -5,7 +5,11 @@
 # Short, memorable entrypoint that dispatches to the longer-named tools.
 #
 # Usage:
-#   ew                      Show current status (palette, banner, deps).
+#   ew                      Show current status (palette, banner, colors, deps).
+#   ew config               Interactive menu — toggle features on/off.
+#   ew colors-on            Enable syntax highlight colors in the command line.
+#   ew colors-off           Disable syntax highlight colors (plain text).
+#   ew colors-toggle        Flip whichever state it's currently in.
 #   ew banner-on            Enable the welcome banner (shows on new shells).
 #   ew banner-off           Disable the welcome banner.
 #   ew banner-toggle        Flip whichever state it's currently in.
@@ -29,6 +33,7 @@ SCRIPT_PATH="${0:A}"
 PKG_ROOT="${EWALLIS_PKG_ROOT:-/usr/local/share/ewallis-terminal}"
 CFG_DIR="$HOME/.config/ewallis-terminal"
 BANNER_OFF_FLAG="$CFG_DIR/banner.disabled"
+COLORS_OFF_FLAG="$CFG_DIR/colors.disabled"
 STATE_FILE="$CFG_DIR/state.toml"
 
 say()  { print -P -- "%F{141}==>%f $*"; }
@@ -38,7 +43,7 @@ warn() { print -P -- "%F{214}  !%f $*"; }
 err()  { print -u2 -P -- "%F{196}  ✗%f $*"; }
 
 usage() {
-  sed -n '3,19p' "$SCRIPT_PATH" | sed -E 's/^# ?//'
+  sed -n '3,22p' "$SCRIPT_PATH" | sed -E 's/^# ?//'
 }
 
 # ─── ew update ───────────────────────────────────────────────────────────────
@@ -148,6 +153,32 @@ print(f"{tag}\t{pkg_url}\t{sha_url}")
   info "open a new terminal tab to pick up the new version"
 }
 
+colors_status() {
+  [[ -f "$COLORS_OFF_FLAG" ]] && print -- "off" || print -- "on"
+}
+
+colors_off() {
+  mkdir -p "$CFG_DIR"
+  touch "$COLORS_OFF_FLAG"
+  ok "colors: off (plain text from next shell)"
+  info "re-enable with: ew colors-on"
+  info "takes effect in a new shell (or: exec zsh)"
+}
+
+colors_on() {
+  /bin/rm -f "$COLORS_OFF_FLAG"
+  ok "colors: on (syntax highlight from next shell)"
+  info "takes effect in a new shell (or: exec zsh)"
+}
+
+colors_toggle() {
+  if [[ -f "$COLORS_OFF_FLAG" ]]; then
+    colors_on
+  else
+    colors_off
+  fi
+}
+
 banner_status() {
   [[ -f "$BANNER_OFF_FLAG" ]] && print -- "off" || print -- "on"
 }
@@ -188,20 +219,25 @@ show_status() {
   local version="unknown"
   [[ -r "$PKG_ROOT/VERSION" ]] && version="$(<"$PKG_ROOT/VERSION")"
 
-  local banner_state
+  local banner_state colors_state
   banner_state="$(banner_status)"
+  colors_state="$(colors_status)"
 
   print -- ""
   print -P -- "  %F{141}EwallisTerminal%f v$version"
   print -- ""
   print -P -- "  palette  %F{114}catppuccin_$palette%f"
   print -P -- "  style    %F{114}$style%f"
+  case "$colors_state" in
+    on)  print -P -- "  colors   %F{114}on%f       (ew colors-off to disable)" ;;
+    off) print -P -- "  colors   %F{245}off%f      (ew colors-on to enable)" ;;
+  esac
   case "$banner_state" in
     on)  print -P -- "  banner   %F{114}on%f       (ew banner-off to disable)" ;;
     off) print -P -- "  banner   %F{245}off%f      (ew banner-on to enable)" ;;
   esac
   print -- ""
-  print -P -- "  %F{245}commands: theme · welcome · doctor · banner-on/off · uninstall%f"
+  print -P -- "  %F{245}commands: theme · colors-on/off · welcome · doctor · banner-on/off · uninstall%f"
   print -- ""
 }
 
@@ -213,6 +249,11 @@ fi
 
 cmd="$1"; shift
 case "$cmd" in
+  config)                      exec "$PKG_ROOT/bin/ew-config" "$@" ;;
+  colors-on|colors_on)         colors_on ;;
+  colors-off|colors_off)       colors_off ;;
+  colors-toggle|colors_toggle) colors_toggle ;;
+  colors-status|colors_status) colors_status ;;
   banner-on|banner_on)         banner_on ;;
   banner-off|banner_off)       banner_off ;;
   banner-toggle|banner_toggle) banner_toggle ;;

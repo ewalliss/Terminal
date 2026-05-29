@@ -109,10 +109,10 @@ done
 ok "snippets/  (4 files)"
 
 # Validate bin scripts
-for b in ew ew-setup ew-uninstall ew-theme ew-doctor ew-welcome; do
+for b in ew ew-setup ew-uninstall ew-theme ew-doctor ew-welcome ew-config; do
   [[ -f "$PKG_SHARE/bin/$b" ]] || { err "missing bin: $b"; exit 1; }
 done
-ok "bin/  (6 scripts — unified under ew)"
+ok "bin/  (7 scripts — unified under ew)"
 
 # Validate vendored plugins
 for p in zsh-autosuggestions/zsh-autosuggestions.zsh zsh-syntax-highlighting/zsh-syntax-highlighting.zsh; do

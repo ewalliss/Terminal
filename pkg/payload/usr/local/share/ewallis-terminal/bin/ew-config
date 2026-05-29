@@ -1,0 +1,219 @@
+#!/usr/bin/env zsh
+# ─────────────────────────────────────────────────────────────────────────────
+# ew-config — interactive feature toggle menu.
+#             Invoked as `ew config` via the main dispatcher.
+#
+# Usage:
+#   ew config              Open interactive menu (fzf if available, plain fallback)
+#   ew config colors       Toggle colors directly (no menu)
+#   ew config banner       Toggle banner directly (no menu)
+# ─────────────────────────────────────────────────────────────────────────────
+emulate -L zsh
+setopt no_unset pipefail
+export LANG="${LANG:-en_US.UTF-8}"
+
+CFG_DIR="$HOME/.config/ewallis-terminal"
+mkdir -p "$CFG_DIR"
+
+# ─── Feature registry ────────────────────────────────────────────────────────
+# Format: "key|label|description|flag_file"
+# Add new toggleable features here — no other code needs to change.
+typeset -a FEATURES=(
+  "colors|Syntax colors|Colorize commands, paths, flags and strings as you type|$CFG_DIR/colors.disabled"
+  "banner|Welcome banner|Show the EwallisTerminal banner on every new terminal window|$CFG_DIR/banner.disabled"
+)
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+is_on()  { [[ ! -f "$1" ]] }   # flag absent  = feature ON
+is_off() { [[ -f "$1" ]] }     # flag present = feature OFF
+
+state_of() {
+  local flag="$1"
+  is_on "$flag" && print -- "on" || print -- "off"
+}
+
+enable_feature()  { /bin/rm -f "$1" 2>/dev/null; true }
+disable_feature() { touch "$1" }
+
+toggle_feature() {
+  local flag="$1"
+  if is_on "$flag"; then disable_feature "$flag"; else enable_feature "$flag"; fi
+}
+
+# ANSI helpers (written as raw escapes so fzf --ansi renders them)
+_green()  { printf '\033[38;2;166;227;161m%s\033[0m' "$*" }   # Catppuccin green
+_dim()    { printf '\033[38;2;108;112;134m%s\033[0m' "$*" }   # overlay0
+_bold()   { printf '\033[1m%s\033[0m' "$*" }
+_mauve()  { printf '\033[38;2;203;166;247m%s\033[0m' "$*" }   # mauve
+
+ok()   { print -P -- "%F{114}  ✓%f $*" }
+info() { print -P -- "%F{245}    $*%f" }
+
+# ─── Build fzf menu lines ─────────────────────────────────────────────────────
+# Returns one line per feature: "<key>\t<rendered line>"
+# The key is hidden in the first field so we can extract it after selection.
+build_lines() {
+  local key label desc flag state bullet state_tag
+  for entry in "${FEATURES[@]}"; do
+    key="${entry%%|*}"
+    local rest="${entry#*|}"
+    label="${rest%%|*}"; rest="${rest#*|}"
+    desc="${rest%%|*}"
+    flag="${rest##*|}"
+    state="$(state_of "$flag")"
+
+    if [[ "$state" == "on" ]]; then
+      bullet="$(_green '●')"
+      state_tag="$(_green '[ON] ')"
+    else
+      bullet="$(_dim '○')"
+      state_tag="$(_dim '[OFF]')"
+    fi
+
+    printf '%s\t  %s  %s  %s  %s\n' \
+      "$key" \
+      "$bullet" \
+      "$state_tag" \
+      "$(_bold "$label")" \
+      "$(_dim "$desc")"
+  done
+}
+
+# ─── Direct toggle (non-interactive) ─────────────────────────────────────────
+direct_toggle() {
+  local target="$1"
+  local key label desc flag
+  for entry in "${FEATURES[@]}"; do
+    key="${entry%%|*}"
+    [[ "$key" != "$target" ]] && continue
+    local rest="${entry#*|}"
+    label="${rest%%|*}"; rest="${rest#*|}"
+    desc="${rest%%|*}"
+    flag="${rest##*|}"
+    toggle_feature "$flag"
+    local new_state
+    new_state="$(state_of "$flag")"
+    ok "$label: $new_state"
+    info "takes effect in a new shell  (or: exec zsh)"
+    return 0
+  done
+  print -u2 -- "unknown feature: $target"
+  print -u2 -- "available: $(print -- "${FEATURES[@]}" | awk -F'|' '{printf "%s ", $1}')"
+  exit 2
+}
+
+# ─── FZF interactive menu ─────────────────────────────────────────────────────
+menu_fzf() {
+  while true; do
+    local lines
+    lines="$(build_lines)"
+
+    # Add a "Done" sentinel at the bottom
+    local done_line
+    done_line="$(printf '__done__\t  %s  %s' "$(_mauve '⏎')" "$(_dim 'Done — close menu')")"
+    local all_lines="$lines"$'\n'"$done_line"
+
+    local selected
+    selected="$(
+      printf '%s\n' "${(f)all_lines}" \
+        | fzf \
+            --ansi \
+            --no-sort \
+            --no-multi \
+            --height=~12 \
+            --border=rounded \
+            --prompt="  config > " \
+            --header="  Space/Enter toggle · Esc quit" \
+            --delimiter=$'\t' \
+            --with-nth=2 \
+            2>/dev/null
+    )"
+
+    # ESC or empty = quit
+    [[ -z "$selected" ]] && break
+
+    local key="${selected%%$'\t'*}"
+    [[ "$key" == "__done__" ]] && break
+
+    # Find and toggle the selected feature
+    local flag
+    for entry in "${FEATURES[@]}"; do
+      [[ "${entry%%|*}" != "$key" ]] && continue
+      flag="${entry##*|}"
+      toggle_feature "$flag"
+      local new_state label
+      new_state="$(state_of "$flag")"
+      label="${entry#*|}"; label="${label%%|*}"
+      print -P -- "  %F{114}✓%f $label → $new_state"
+    done
+  done
+
+  print -- ""
+  info "Changes take effect in a new shell  (or: exec zsh)"
+  print -- ""
+}
+
+# ─── Plain fallback menu (no fzf) ─────────────────────────────────────────────
+menu_plain() {
+  while true; do
+    print -- ""
+    print -P -- "  %F{141}EwallisTerminal — feature toggles%f"
+    print -- ""
+
+    local i=1
+    local key label desc flag state
+    for entry in "${FEATURES[@]}"; do
+      key="${entry%%|*}"
+      local rest="${entry#*|}"
+      label="${rest%%|*}"; rest="${rest#*|}"
+      desc="${rest%%|*}"
+      flag="${rest##*|}"
+      state="$(state_of "$flag")"
+      if [[ "$state" == "on" ]]; then
+        print -P -- "  %F{114}[$i] ● $label%f  (on)   — $desc"
+      else
+        print -P -- "  %F{245}[$i] ○ $label%f  (off)  — $desc"
+      fi
+      (( i++ ))
+    done
+    print -P -- "  %F{245}[q] quit%f"
+    print -- ""
+    printf "  Select: "
+    local reply
+    read -r reply < /dev/tty
+
+    case "$reply" in
+      q|Q|"") break ;;
+      *)
+        if [[ "$reply" =~ ^[0-9]+$ ]] && (( reply >= 1 && reply <= ${#FEATURES[@]} )); then
+          local idx=$(( reply - 1 ))
+          local chosen="${FEATURES[$((idx+1))]}"
+          flag="${chosen##*|}"
+          label="${chosen#*|}"; label="${label%%|*}"
+          toggle_feature "$flag"
+          local new_state
+          new_state="$(state_of "$flag")"
+          ok "$label: $new_state"
+        else
+          print -P -- "  %F{196}invalid choice%f"
+        fi
+        ;;
+    esac
+  done
+
+  print -- ""
+  info "Changes take effect in a new shell  (or: exec zsh)"
+  print -- ""
+}
+
+# ─── Entry point ─────────────────────────────────────────────────────────────
+if (( $# > 0 )); then
+  direct_toggle "$1"
+  exit 0
+fi
+
+if command -v fzf >/dev/null 2>&1; then
+  menu_fzf
+else
+  menu_plain
+fi
