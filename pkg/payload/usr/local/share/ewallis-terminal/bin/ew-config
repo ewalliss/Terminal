@@ -10,6 +10,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 emulate -L zsh
 setopt no_unset pipefail
+unsetopt xtrace verbose     # never let the caller's debug flags leak into our output
 export LANG="${LANG:-en_US.UTF-8}"
 
 CFG_DIR="$HOME/.config/ewallis-terminal"
@@ -24,98 +25,72 @@ typeset -a FEATURES=(
 )
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
-is_on()  { [[ ! -f "$1" ]] }   # flag absent  = feature ON
-is_off() { [[ -f "$1" ]] }     # flag present = feature OFF
+is_on() { [[ ! -f "$1" ]] }
 
-state_of() {
-  local flag="$1"
-  is_on "$flag" && print -- "on" || print -- "off"
-}
+state_of() { is_on "$1" && print -- "on" || print -- "off" }
 
 enable_feature()  { /bin/rm -f "$1" 2>/dev/null; true }
 disable_feature() { touch "$1" }
 
 toggle_feature() {
-  local flag="$1"
-  if is_on "$flag"; then disable_feature "$flag"; else enable_feature "$flag"; fi
+  if is_on "$1"; then disable_feature "$1"; else enable_feature "$1"; fi
 }
 
-# ANSI helpers (written as raw escapes so fzf --ansi renders them)
-_green()  { printf '\033[38;2;166;227;161m%s\033[0m' "$*" }   # Catppuccin green
-_dim()    { printf '\033[38;2;108;112;134m%s\033[0m' "$*" }   # overlay0
-_bold()   { printf '\033[1m%s\033[0m' "$*" }
-_mauve()  { printf '\033[38;2;203;166;247m%s\033[0m' "$*" }   # mauve
+# ANSI helpers — raw escapes so fzf --ansi renders them
+_green() { printf '\033[38;2;166;227;161m%s\033[0m' "$*" }
+_dim()   { printf '\033[38;2;108;112;134m%s\033[0m' "$*" }
+_bold()  { printf '\033[1m%s\033[0m' "$*" }
+_mauve() { printf '\033[38;2;203;166;247m%s\033[0m' "$*" }
 
 ok()   { print -P -- "%F{114}  ✓%f $*" }
 info() { print -P -- "%F{245}    $*%f" }
 
-# ─── Build fzf menu lines ─────────────────────────────────────────────────────
-# Returns one line per feature: "<key>\t<rendered line>"
-# The key is hidden in the first field so we can extract it after selection.
+# ─── Build fzf menu lines ────────────────────────────────────────────────────
+# One line per feature: "<key>\t<rendered display line>"
 build_lines() {
-  local key label desc flag state bullet state_tag
+  local entry key rest label desc flag state bullet state_tag
   for entry in "${FEATURES[@]}"; do
     key="${entry%%|*}"
-    local rest="${entry#*|}"
+    rest="${entry#*|}"
     label="${rest%%|*}"; rest="${rest#*|}"
     desc="${rest%%|*}"
     flag="${rest##*|}"
     state="$(state_of "$flag")"
-
     if [[ "$state" == "on" ]]; then
-      bullet="$(_green '●')"
-      state_tag="$(_green '[ON] ')"
+      bullet="$(_green '●')"; state_tag="$(_green '[ON] ')"
     else
-      bullet="$(_dim '○')"
-      state_tag="$(_dim '[OFF]')"
+      bullet="$(_dim '○')";   state_tag="$(_dim '[OFF]')"
     fi
-
     printf '%s\t  %s  %s  %s  %s\n' \
-      "$key" \
-      "$bullet" \
-      "$state_tag" \
-      "$(_bold "$label")" \
-      "$(_dim "$desc")"
+      "$key" "$bullet" "$state_tag" "$(_bold "$label")" "$(_dim "$desc")"
   done
 }
 
 # ─── Direct toggle (non-interactive) ─────────────────────────────────────────
 direct_toggle() {
-  local target="$1"
-  local key label desc flag
+  local target="$1" entry key rest label desc flag
   for entry in "${FEATURES[@]}"; do
     key="${entry%%|*}"
     [[ "$key" != "$target" ]] && continue
-    local rest="${entry#*|}"
+    rest="${entry#*|}"
     label="${rest%%|*}"; rest="${rest#*|}"
     desc="${rest%%|*}"
     flag="${rest##*|}"
     toggle_feature "$flag"
-    local new_state
-    new_state="$(state_of "$flag")"
-    ok "$label: $new_state"
+    ok "$label: $(state_of "$flag")"
     info "takes effect in a new shell  (or: exec zsh)"
     return 0
   done
   print -u2 -- "unknown feature: $target"
-  print -u2 -- "available: $(print -- "${FEATURES[@]}" | awk -F'|' '{printf "%s ", $1}')"
   exit 2
 }
 
-# ─── FZF interactive menu ─────────────────────────────────────────────────────
+# ─── FZF interactive menu ────────────────────────────────────────────────────
 menu_fzf() {
+  local selected key entry flag label
   while true; do
-    local lines
-    lines="$(build_lines)"
-
-    # Add a "Done" sentinel at the bottom
-    local done_line
-    done_line="$(printf '__done__\t  %s  %s' "$(_mauve '⏎')" "$(_dim 'Done — close menu')")"
-    local all_lines="$lines"$'\n'"$done_line"
-
-    local selected
     selected="$(
-      printf '%s\n' "${(f)all_lines}" \
+      { build_lines; printf '__done__\t  %s  %s\n' "$(_mauve '⏎')" "$(_dim 'Done — close menu')"; } \
         | fzf \
             --ansi \
             --no-sort \
@@ -123,28 +98,23 @@ menu_fzf() {
             --height=~12 \
             --border=rounded \
             --prompt="  config > " \
-            --header="  Space/Enter toggle · Esc quit" \
+            --header="  Enter toggle · Esc quit" \
             --delimiter=$'\t' \
             --with-nth=2 \
             2>/dev/null
     )"
 
-    # ESC or empty = quit
     [[ -z "$selected" ]] && break
 
-    local key="${selected%%$'\t'*}"
+    key="${selected%%$'\t'*}"
     [[ "$key" == "__done__" ]] && break
 
-    # Find and toggle the selected feature
-    local flag
     for entry in "${FEATURES[@]}"; do
       [[ "${entry%%|*}" != "$key" ]] && continue
       flag="${entry##*|}"
-      toggle_feature "$flag"
-      local new_state label
-      new_state="$(state_of "$flag")"
       label="${entry#*|}"; label="${label%%|*}"
-      print -P -- "  %F{114}✓%f $label → $new_state"
+      toggle_feature "$flag"
+      print -P -- "  %F{114}✓%f $label → $(state_of "$flag")"
     done
   done
 
@@ -153,18 +123,17 @@ menu_fzf() {
   print -- ""
 }
 
-# ─── Plain fallback menu (no fzf) ─────────────────────────────────────────────
+# ─── Plain fallback menu (no fzf) ────────────────────────────────────────────
 menu_plain() {
+  local i entry key rest label desc flag state reply chosen
   while true; do
     print -- ""
     print -P -- "  %F{141}EwallisTerminal — feature toggles%f"
     print -- ""
-
-    local i=1
-    local key label desc flag state
+    i=1
     for entry in "${FEATURES[@]}"; do
       key="${entry%%|*}"
-      local rest="${entry#*|}"
+      rest="${entry#*|}"
       label="${rest%%|*}"; rest="${rest#*|}"
       desc="${rest%%|*}"
       flag="${rest##*|}"
@@ -179,21 +148,17 @@ menu_plain() {
     print -P -- "  %F{245}[q] quit%f"
     print -- ""
     printf "  Select: "
-    local reply
     read -r reply < /dev/tty
 
     case "$reply" in
       q|Q|"") break ;;
       *)
         if [[ "$reply" =~ ^[0-9]+$ ]] && (( reply >= 1 && reply <= ${#FEATURES[@]} )); then
-          local idx=$(( reply - 1 ))
-          local chosen="${FEATURES[$((idx+1))]}"
+          chosen="${FEATURES[$reply]}"
           flag="${chosen##*|}"
           label="${chosen#*|}"; label="${label%%|*}"
           toggle_feature "$flag"
-          local new_state
-          new_state="$(state_of "$flag")"
-          ok "$label: $new_state"
+          ok "$label: $(state_of "$flag")"
         else
           print -P -- "  %F{196}invalid choice%f"
         fi
