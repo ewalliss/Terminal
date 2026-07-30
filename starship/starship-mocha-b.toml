@@ -101,7 +101,7 @@ Android = "  "   # nf-md-android
 show_always = true
 style_user  = "fg:mauve"
 style_root  = "fg:red"
-format      = '[ $user ]($style)'
+format      = '[$user]($style)'
 
 # ── Directory ──────────────────────────────────────────────────────────────────
 [directory]
