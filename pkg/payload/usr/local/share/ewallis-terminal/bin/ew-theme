@@ -190,7 +190,27 @@ if [[ -z "${EWALLIS_NO_TERMINAL_PROFILE:-}" ]]; then
   SRC_TERMINAL="$PKG_ROOT/terminal/EwallisTerminal-$PALETTE.terminal"
   if [[ -f "$SRC_TERMINAL" ]]; then
     say "Updating Terminal.app profile"
-    /usr/bin/defaults write com.apple.Terminal "Window Settings" -dict-add "EwallisTerminal" "$(cat "$SRC_TERMINAL")"
+    # Preserve the user's `ew glass` opacity/blur across palette switches
+    GLASS_FILE="$HOME/.config/ewallis-terminal/glass"
+    terminal_payload="$(cat "$SRC_TERMINAL")"
+    if [[ -r "$GLASS_FILE" ]]; then
+      read -r g_op g_blur < "$GLASS_FILE"
+      terminal_payload="$(/usr/bin/python3 - "$SRC_TERMINAL" "$g_op" "$g_blur" <<'PY'
+import plistlib, sys
+path, op, blur = sys.argv[1], float(sys.argv[2]) / 100, float(sys.argv[3]) / 100
+doc = plistlib.loads(open(path, "rb").read())
+arch = plistlib.loads(doc["BackgroundColor"])
+o = arch["$objects"][1]
+r, g, b = o["NSRGB"].rstrip(b"\x00").decode().split()[:3]
+comps = f"{r} {g} {b}" if op >= 1.0 else f"{r} {g} {b} {op:g}"
+o["NSRGB"] = comps.encode() + b"\x00"
+doc["BackgroundColor"] = plistlib.dumps(arch, fmt=plistlib.FMT_BINARY)
+doc["BackgroundBlur"] = blur
+sys.stdout.buffer.write(plistlib.dumps(doc))
+PY
+)" || terminal_payload="$(cat "$SRC_TERMINAL")"
+    fi
+    /usr/bin/defaults write com.apple.Terminal "Window Settings" -dict-add "EwallisTerminal" "$terminal_payload"
     ok "Terminal.app → EwallisTerminal (palette: catppuccin_$PALETTE)"
   fi
 fi

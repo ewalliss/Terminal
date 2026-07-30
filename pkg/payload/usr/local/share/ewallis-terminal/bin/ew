@@ -15,6 +15,8 @@
 #   ew banner-toggle        Flip whichever state it's currently in.
 #   ew welcome              Print the banner right now.
 #   ew theme [args…]        Switch palette (latte | frappe | macchiato | mocha).
+#   ew glass <op%> [blur%]  Terminal.app background: opacity 20-100, blur 0-100.
+#   ew glass on|off|toggle  Quick switch between glass and solid background.
 #   ew doctor [args…]       Check dependencies; --self-test for full cycle.
 #   ew setup [args…]        Re-run per-user setup (rc inject, plugin theme).
 #   ew update [--check]     Check GitHub Releases; install latest .pkg.
@@ -43,7 +45,7 @@ warn() { print -P -- "%F{214}  !%f $*"; }
 err()  { print -u2 -P -- "%F{196}  ✗%f $*"; }
 
 usage() {
-  sed -n '3,22p' "$SCRIPT_PATH" | sed -E 's/^# ?//'
+  sed -n '3,24p' "$SCRIPT_PATH" | sed -E 's/^# ?//'
 }
 
 # ─── ew update ───────────────────────────────────────────────────────────────
@@ -153,6 +155,93 @@ print(f"{tag}\t{pkg_url}\t{sha_url}")
   info "open a new terminal tab to pick up the new version"
 }
 
+# ─── ew glass — Terminal.app background opacity + blur ───────────────────────
+# Values persist in $CFG_DIR/glass ("<opacity> <blur>", percent) and are
+# re-applied by ew-theme/ew-setup whenever the profile is rewritten.
+apply_glass() {
+  # apply_glass <src.terminal> <opacity%> <blur%> — patch + write to prefs
+  local src="$1" op="$2" blur="$3" patched
+  patched="$(/usr/bin/python3 - "$src" "$op" "$blur" <<'PY'
+import plistlib, sys
+path, op, blur = sys.argv[1], float(sys.argv[2]) / 100, float(sys.argv[3]) / 100
+doc = plistlib.loads(open(path, "rb").read())
+arch = plistlib.loads(doc["BackgroundColor"])
+o = arch["$objects"][1]
+r, g, b = o["NSRGB"].rstrip(b"\x00").decode().split()[:3]
+comps = f"{r} {g} {b}" if op >= 1.0 else f"{r} {g} {b} {op:g}"
+o["NSRGB"] = comps.encode() + b"\x00"
+doc["BackgroundColor"] = plistlib.dumps(arch, fmt=plistlib.FMT_BINARY)
+doc["BackgroundBlur"] = blur
+sys.stdout.buffer.write(plistlib.dumps(doc))
+PY
+)" || return 1
+  /usr/bin/defaults write com.apple.Terminal "Window Settings" -dict-add "EwallisTerminal" "$patched"
+}
+
+do_glass() {
+  local GLASS_FILE="$CFG_DIR/glass"
+  if (( $# == 0 )); then
+    if [[ -r "$GLASS_FILE" ]]; then
+      local a b; read -r a b < "$GLASS_FILE"
+      print -P -- "  glass    opacity %F{114}${a}%%%f · blur %F{114}${b}%%%f"
+    else
+      print -P -- "  glass    default (opacity 65% · blur 70%)"
+    fi
+    info "usage: ew glass <opacity 20-100> [blur 0-100]  |  ew glass off"
+    return 0
+  fi
+
+  local GLASS_PREV="$CFG_DIR/glass.prev"
+  local op blur cur_op=60 cur_blur=70
+  [[ -r "$GLASS_FILE" ]] && read -r cur_op cur_blur < "$GLASS_FILE"
+
+  case "$1" in
+    off)
+      # Remember the current glass so `ew glass on` restores it exactly
+      if (( cur_op < 100 )); then
+        mkdir -p "$CFG_DIR"
+        print -- "$cur_op $cur_blur" > "$GLASS_PREV"
+      fi
+      op=100 blur=0
+      ;;
+    on)
+      op=60 blur=70
+      [[ -r "$GLASS_PREV" ]] && read -r op blur < "$GLASS_PREV"
+      (( op >= 100 )) && { op=60; blur=70; }
+      ;;
+    toggle)
+      if (( cur_op >= 100 )); then
+        do_glass on
+      else
+        do_glass off
+      fi
+      return $?
+      ;;
+    *)
+      op="$1" blur="${2:-70}"
+      [[ "$op" == <-> ]] && (( op >= 20 && op <= 100 )) \
+        || { err "opacity must be 20-100 (lower = clearer)"; return 2; }
+      [[ "$blur" == <-> ]] && (( blur >= 0 && blur <= 100 )) \
+        || { err "blur must be 0-100"; return 2; }
+      ;;
+  esac
+
+  local palette="mocha"
+  [[ -f "$STATE_FILE" ]] && palette="$(grep -E '^palette' "$STATE_FILE" | cut -d'"' -f2)"
+  local src="$PKG_ROOT/terminal/EwallisTerminal-$palette.terminal"
+  [[ -f "$src" ]] || { err "missing Terminal.app profile: $src"; return 1; }
+
+  apply_glass "$src" "$op" "$blur" || { err "failed to patch profile"; return 1; }
+  mkdir -p "$CFG_DIR"
+  print -- "$op $blur" > "$GLASS_FILE"
+  if [[ "$op" == "100" ]]; then
+    ok "glass: off (solid background)"
+  else
+    ok "glass: opacity ${op}%% · blur ${blur}%%"
+  fi
+  info "quit and reopen Terminal.app to see it (profiles load at launch)"
+}
+
 colors_status() {
   [[ -f "$COLORS_OFF_FLAG" ]] && print -- "off" || print -- "on"
 }
@@ -236,8 +325,15 @@ show_status() {
     on)  print -P -- "  banner   %F{114}on%f       (ew banner-off to disable)" ;;
     off) print -P -- "  banner   %F{245}off%f      (ew banner-on to enable)" ;;
   esac
+  local g_op=60 g_blur=70
+  [[ -r "$CFG_DIR/glass" ]] && read -r g_op g_blur < "$CFG_DIR/glass"
+  if (( g_op >= 100 )); then
+    print -P -- "  glass    %F{245}off%f      (ew glass on to enable)"
+  else
+    print -P -- "  glass    %F{114}on%f       ${g_op}%% · blur ${g_blur}%%  (ew glass off to disable)"
+  fi
   print -- ""
-  print -P -- "  %F{245}commands: theme · colors-on/off · welcome · doctor · banner-on/off · uninstall%f"
+  print -P -- "  %F{245}commands: theme · glass · colors-on/off · welcome · doctor · banner-on/off · uninstall%f"
   print -- ""
 }
 
@@ -261,6 +357,7 @@ case "$cmd" in
   status)                      show_status ;;
   welcome)                     exec "$PKG_ROOT/bin/ew-welcome" "$@" ;;
   theme)                       exec "$PKG_ROOT/bin/ew-theme" "$@" ;;
+  glass)                       do_glass "$@" ;;
   doctor)                      exec "$PKG_ROOT/bin/ew-doctor" "$@" ;;
   setup)                       exec "$PKG_ROOT/bin/ew-setup" "$@" ;;
   update)                      do_update "$@" ;;

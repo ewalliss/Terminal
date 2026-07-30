@@ -29,6 +29,11 @@ PROFILE_NAME = "EwallisTerminal"
 FONT_NAME = "JetBrainsMonoNFM-Regular"
 FONT_SIZE = 13.0
 
+# "Liquid glass" background: translucent + blurred (Terminal renders what's
+# behind the window through a frosted layer). 1.0/0.0 = solid, no blur.
+BG_ALPHA = 0.60
+BG_BLUR = 0.7
+
 # Catppuccin Color Spec  (https://github.com/catppuccin/catppuccin)
 PALETTES = {
     "latte": {
@@ -156,7 +161,8 @@ def build_profile(palette_name: str) -> dict:
         "name": PROFILE_NAME,
         "type": "Window Settings",
         "ProfileCurrentVersion": 2.07,
-        "BackgroundColor":  C(p["base"]),
+        "BackgroundColor":  C(p["base"], alpha=BG_ALPHA),
+        "BackgroundBlur":   BG_BLUR,
         "TextColor":        C(p["text"]),
         "TextBoldColor":    C(p["text"]),
         "CursorColor":      C(p["rosewater"]),
