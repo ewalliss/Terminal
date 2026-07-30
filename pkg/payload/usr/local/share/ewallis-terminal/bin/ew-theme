@@ -183,6 +183,18 @@ PY
 mv -f "$tmp" "$ITERM_ACTIVE"
 ok "iTerm2 → ewallis-terminal.json (palette: catppuccin_$PALETTE)"
 
+# ─── 1b. Update Terminal.app profile slot ────────────────────────────────────
+# Rewrites the "EwallisTerminal" entry in Terminal.app's prefs with the new
+# palette. Skipped in sandboxed self-tests (defaults ignores $HOME).
+if [[ -z "${EWALLIS_NO_TERMINAL_PROFILE:-}" ]]; then
+  SRC_TERMINAL="$PKG_ROOT/terminal/EwallisTerminal-$PALETTE.terminal"
+  if [[ -f "$SRC_TERMINAL" ]]; then
+    say "Updating Terminal.app profile"
+    /usr/bin/defaults write com.apple.Terminal "Window Settings" -dict-add "EwallisTerminal" "$(cat "$SRC_TERMINAL")"
+    ok "Terminal.app → EwallisTerminal (palette: catppuccin_$PALETTE)"
+  fi
+fi
+
 # ─── 2. Switch starship palette in-place ─────────────────────────────────────
 say "Switching starship palette"
 if [[ ! -f "$STARSHIP_CFG" ]]; then
@@ -239,7 +251,8 @@ mv -f "$STATE_FILE.tmp.$$" "$STATE_FILE"
 ok "state → $STATE_FILE"
 
 print -- ""
-print -P -- "  iTerm2: open a new tab to see the new colors"
-print -P -- "  Shell:  the next prompt will use catppuccin_$PALETTE"
+print -P -- "  iTerm2:       open a new tab to see the new colors"
+print -P -- "  Terminal.app: quit and reopen Terminal to load the new palette"
+print -P -- "  Shell:        the next prompt will use catppuccin_$PALETTE"
 print -- ""
 print -P -- "  In iTerm2 → Settings → Profiles, select %F{141}EwallisTerminal%f as default."

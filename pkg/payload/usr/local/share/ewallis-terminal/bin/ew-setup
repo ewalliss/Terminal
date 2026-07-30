@@ -197,6 +197,32 @@ with open(p, "w") as f:
 PY
 ok "iTerm2 → EwallisTerminal profile (palette: catppuccin_$VARIANT)"
 
+# ─── 2b. Import Terminal.app profile (single "EwallisTerminal" slot) ─────────
+# `defaults` targets the real user's prefs regardless of $HOME, so sandboxed
+# self-tests must set EWALLIS_NO_TERMINAL_PROFILE=1 to skip this section.
+if [[ -z "${EWALLIS_NO_TERMINAL_PROFILE:-}" ]]; then
+  say "Installing Terminal.app profile"
+  TERMINAL_SRC="$PKG_ROOT/terminal/EwallisTerminal-$VARIANT.terminal"
+  if [[ -f "$TERMINAL_SRC" ]]; then
+    prev_term_default="$(/usr/bin/defaults read com.apple.Terminal 'Default Window Settings' 2>/dev/null || true)"
+    prev_term_startup="$(/usr/bin/defaults read com.apple.Terminal 'Startup Window Settings' 2>/dev/null || true)"
+    manifest_record "terminal_profile" "EwallisTerminal"
+    # Record what the user had before us, so uninstall can put it back.
+    # (If we're already the default — a re-run — there's nothing older to save.)
+    [[ "$prev_term_default" != "EwallisTerminal" ]] && manifest_record "terminal_default" "$prev_term_default"
+    [[ "$prev_term_startup" != "EwallisTerminal" ]] && manifest_record "terminal_startup" "$prev_term_startup"
+    /usr/bin/defaults write com.apple.Terminal "Window Settings" -dict-add "EwallisTerminal" "$(cat "$TERMINAL_SRC")"
+    /usr/bin/defaults write com.apple.Terminal "Default Window Settings" -string "EwallisTerminal"
+    /usr/bin/defaults write com.apple.Terminal "Startup Window Settings" -string "EwallisTerminal"
+    ok "Terminal.app → EwallisTerminal profile (palette: catppuccin_$VARIANT)"
+    if /usr/bin/pgrep -qx Terminal 2>/dev/null; then
+      warn "Terminal.app is running — quit and reopen it to load the profile"
+    fi
+  else
+    warn "missing Terminal.app profile: $TERMINAL_SRC"
+  fi
+fi
+
 # ─── 3. Deploy theme switcher + doctor + legacy toggle ───────────────────────
 say "Installing CLI tools"
 for tool in ew ewallis-theme ewallis-terminal-doctor ewallis-welcome toggle-starship-theme; do

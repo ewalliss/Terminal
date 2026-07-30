@@ -62,6 +62,14 @@ for palette in latte frappe macchiato mocha; do
 done
 ok "iterm2/  (2 .itermcolors + 4 dynamic profile .json)"
 
+# Terminal.app profiles — one .terminal file per palette (single shared slot name)
+mkdir -p "$PKG_SHARE/terminal"
+for palette in latte frappe macchiato mocha; do
+  /usr/bin/python3 "$SCRIPT_DIR/tools/build-terminal-profile.py" \
+    "$palette" "$PKG_SHARE/terminal/EwallisTerminal-$palette.terminal"
+done
+ok "terminal/  (4 Terminal.app profiles)"
+
 # Plugin theme files — one per palette (autosuggest + syntax-highlight + fzf colors)
 mkdir -p "$PKG_SHARE/plugin-themes"
 for palette in latte frappe macchiato mocha; do
@@ -101,6 +109,15 @@ for json in "$PKG_SHARE"/iterm2/*.json; do
   fi
 done
 ok "dynamic profiles are valid JSON"
+
+# Validate Terminal.app profiles are well-formed plists
+for tprof in "$PKG_SHARE"/terminal/*.terminal; do
+  if ! /usr/bin/plutil -lint "$tprof" >/dev/null 2>&1; then
+    err "invalid plist: $tprof"
+    exit 1
+  fi
+done
+ok "Terminal.app profiles are valid plists"
 
 # Validate snippets exist
 for snip in zshrc.sh zprofile.sh bashrc.sh fish.fish; do

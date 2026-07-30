@@ -7,3 +7,4 @@ claude_code_cli
 
 # Build artifacts — distribute via GitHub Releases, not git
 dist/*.pkg
+dist/

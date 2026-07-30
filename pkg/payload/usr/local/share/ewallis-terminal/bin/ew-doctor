@@ -73,8 +73,10 @@ if (( SELF_TEST )); then
     fi
   }
 
+  # EWALLIS_NO_TERMINAL_PROFILE: `defaults` writes the real user's prefs even
+  # with $HOME overridden, so the Terminal.app steps must be skipped here.
   step "install (mocha/B)" env HOME="$sandbox/home" USER="testuser" \
-    EWALLIS_PKG_ROOT="$PKG_ROOT_FOR_TEST" \
+    EWALLIS_PKG_ROOT="$PKG_ROOT_FOR_TEST" EWALLIS_NO_TERMINAL_PROFILE=1 \
     /bin/zsh "$PKG_ROOT_FOR_TEST/bin/ew-setup" --variant mocha --style B
   step "state.toml deployed" test -f "$sandbox/home/.config/ewallis-terminal/state.toml"
   step "plugin-theme.zsh deployed" test -f "$sandbox/home/.config/ewallis-terminal/plugin-theme.zsh"
@@ -83,12 +85,12 @@ if (( SELF_TEST )); then
   step "schema_version=2 in state" grep -q 'schema_version = 2' "$sandbox/home/.config/ewallis-terminal/state.toml"
 
   step "switch to latte" env HOME="$sandbox/home" USER="testuser" \
-    EWALLIS_PKG_ROOT="$PKG_ROOT_FOR_TEST" \
+    EWALLIS_PKG_ROOT="$PKG_ROOT_FOR_TEST" EWALLIS_NO_TERMINAL_PROFILE=1 \
     /bin/zsh "$PKG_ROOT_FOR_TEST/bin/ew-theme" latte
   step "plugin-theme flipped to latte" grep -q 'catppuccin_latte' "$sandbox/home/.config/ewallis-terminal/plugin-theme.zsh"
 
   step "uninstall (user phase)" env HOME="$sandbox/home" USER="testuser" \
-    EWALLIS_PKG_ROOT="$PKG_ROOT_FOR_TEST" \
+    EWALLIS_PKG_ROOT="$PKG_ROOT_FOR_TEST" EWALLIS_NO_TERMINAL_PROFILE=1 \
     /bin/zsh "$PKG_ROOT_FOR_TEST/bin/ew-uninstall"
   step "state.toml removed" sh -c "[ ! -f '$sandbox/home/.config/ewallis-terminal/state.toml' ]"
   step "marker block stripped" sh -c "! grep -q '>>> ewallis-terminal' '$sandbox/home/.zshrc' 2>/dev/null"

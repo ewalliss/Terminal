@@ -159,6 +159,45 @@ for rc in "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.bashrc" "$HOME/.bash_profile"
   strip_legacy_lines "$rc"
 done
 
+# 3c. Remove the Terminal.app profile and restore the user's previous default.
+#     Round-trips through `defaults export/import` (not raw plist edits) so
+#     cfprefsd never serves stale data. Skipped in sandboxed self-tests.
+if [[ -z "${EWALLIS_NO_TERMINAL_PROFILE:-}" && -f "$MANIFEST" ]] \
+   && grep -q $'^terminal_profile\t' "$MANIFEST" 2>/dev/null; then
+  say "Removing Terminal.app profile"
+  prev_term_default="$(grep $'^terminal_default\t' "$MANIFEST" 2>/dev/null | tail -1 | cut -f2 || true)"
+  prev_term_startup="$(grep $'^terminal_startup\t' "$MANIFEST" 2>/dev/null | tail -1 | cut -f2 || true)"
+  if (( DRY_RUN )); then
+    print -P -- "%F{245}  dry  remove EwallisTerminal from Terminal.app profiles%f"
+    print -P -- "%F{245}  dry  restore default profile → ${prev_term_default:-(factory)}%f"
+  else
+    term_tmp="${TMPDIR:-/tmp}/ewallis-terminal-prefs.$$.plist"
+    if /usr/bin/defaults export com.apple.Terminal "$term_tmp" 2>/dev/null; then
+      /usr/bin/python3 - "$term_tmp" "$prev_term_default" "$prev_term_startup" <<'PY'
+import plistlib, sys
+path, prev_default, prev_startup = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path, "rb") as f:
+    doc = plistlib.load(f)
+doc.get("Window Settings", {}).pop("EwallisTerminal", None)
+for key, prev in (("Default Window Settings", prev_default),
+                  ("Startup Window Settings", prev_startup)):
+    if doc.get(key) == "EwallisTerminal":
+        if prev:
+            doc[key] = prev
+        else:
+            doc.pop(key, None)
+with open(path, "wb") as f:
+    plistlib.dump(doc, f)
+PY
+      /usr/bin/defaults import com.apple.Terminal "$term_tmp"
+      /bin/rm -f -- "$term_tmp"
+      ok "removed Terminal.app profile (default → ${prev_term_default:-factory})"
+    else
+      warn "could not export Terminal.app prefs — skipping profile removal"
+    fi
+  fi
+fi
+
 # 4. Remove per-user state dir (manifest + backups). User can keep backups
 #    if they want — we leave the dir if DRY_RUN.
 say "Cleaning per-user state"
