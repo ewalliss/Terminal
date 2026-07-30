@@ -11,10 +11,14 @@
 #            forget the pkg receipt.
 #
 # Usage:
-#   ewallis-terminal-uninstall            # user phase only
-#   ewallis-terminal-uninstall --system   # user phase, then sudo for system
-#   ewallis-terminal-uninstall --all      # alias for --system
-#   ewallis-terminal-uninstall --dry-run  # show what would happen
+#   ew uninstall            # user phase only (keeps pre-install backups)
+#   ew uninstall --system   # user phase, then sudo for system files
+#   ew uninstall --all      # alias for --system
+#   ew uninstall --purge    # also delete the kept backups
+#   ew uninstall --dry-run  # show what would happen
+#
+# Shell rc files are never restored from backup — only our marker block is
+# stripped, so anything the user added after installing is preserved.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 IFS=$'\n\t'
@@ -35,12 +39,15 @@ fi
 
 DO_SYSTEM=0
 DRY_RUN=0
+PURGE=0
 while (( $# > 0 )); do
   case "$1" in
     --system|--all) DO_SYSTEM=1 ;;
     --dry-run)      DRY_RUN=1 ;;
+    --purge)        PURGE=1 ;;
     --help|-h)
-      print -- "Usage: $0 [--system|--all] [--dry-run]"
+      print -- "Usage: $0 [--system|--all] [--purge] [--dry-run]"
+      print -- "  --purge   also delete the pre-install backups (kept by default)"
       exit 0
       ;;
     *) print -u2 -- "unknown arg: $1"; exit 2 ;;
@@ -108,10 +115,25 @@ strip_legacy_lines() {
 # 2. Restore from backups recorded in the manifest.
 # NOTE: restore runs BEFORE marker/legacy strip — otherwise restoring an old
 # backup brings any pre-existing injection right back, undoing our strip.
+#
+# IMPORTANT: rc files (manifest kind "injected") are NEVER restored from
+# backup — the install-time snapshot would clobber anything the user added
+# to their rc AFTER installing. Our only footprint there is the
+# marker-bounded block, and stripping it (step 3b) preserves user edits.
 if [[ -f "$MANIFEST" ]]; then
+  typeset -A injected_set=()
+  while IFS=$'\t' read -r kind target _; do
+    [[ "$kind" == "injected" ]] && injected_set[$target]=1
+  done < "$MANIFEST"
+
   say "Restoring from backups"
   while IFS=$'\t' read -r kind orig backup; do
     [[ "$kind" == "backup" ]] || continue
+    if [[ -n "${injected_set[$orig]:-}" ]]; then
+      info_msg="rc file — strip markers only, keep user edits"
+      print -P -- "%F{245}  skip $orig ($info_msg)%f"
+      continue
+    fi
     if [[ -f "$backup" ]]; then
       if (( DRY_RUN )); then
         print -P -- "%F{245}  dry  restore $orig from $backup%f"
@@ -198,14 +220,28 @@ PY
   fi
 fi
 
-# 4. Remove per-user state dir (manifest + backups). User can keep backups
-#    if they want — we leave the dir if DRY_RUN.
+# 4. Remove per-user state. Backups are KEPT by default as a safety net —
+#    pass --purge to delete them too.
 say "Cleaning per-user state"
 if (( DRY_RUN )); then
-  print -P -- "%F{245}  dry  rm -rf $STATE_DIR%f"
-else
+  if (( PURGE )); then
+    print -P -- "%F{245}  dry  rm -rf $STATE_DIR%f"
+  else
+    print -P -- "%F{245}  dry  rm state files, keep $STATE_DIR/backups%f"
+  fi
+elif (( PURGE )); then
   rm -rf -- "$STATE_DIR"
-  ok "removed: $STATE_DIR"
+  ok "removed: $STATE_DIR (including backups)"
+else
+  /bin/rm -f -- "$MANIFEST" "$STATE_DIR/needs-doctor" "$STATE_DIR/postinstall.log" 2>/dev/null
+  if [[ -d "$STATE_DIR/backups" ]] && [[ -n "$(ls -A "$STATE_DIR/backups" 2>/dev/null)" ]]; then
+    ok "removed state files"
+    warn "kept pre-install backups at $STATE_DIR/backups"
+    warn "delete them anytime, or uninstall with --purge to remove everything"
+  else
+    rm -rf -- "$STATE_DIR"
+    ok "removed: $STATE_DIR"
+  fi
 fi
 
 # 5. Best-effort: rmdir any now-empty dirs we created (~/.config/ewallis-terminal,

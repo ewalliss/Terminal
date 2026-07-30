@@ -231,12 +231,13 @@ Run `ew doctor` after install and accept the install prompt — it handles all o
 ## Uninstall
 
 ```sh
-ew uninstall              # restore your prior state (shell rcs, starship.toml, iTerm2 profile)
+ew uninstall              # remove everything ours; your own edits are never touched
 ew uninstall --system     # same, plus remove /usr/local/share/ewallis-terminal/ (needs sudo)
+ew uninstall --purge      # also delete the kept pre-install backups
 ew uninstall --dry-run    # show what would happen, don't change anything
 ```
 
-`ew uninstall` reads the install manifest, restores every pre-existing file from backup, strips the marker block from shell rcs, removes any file we deployed, removes the Terminal.app profile (restoring your previous default profile), and prunes empty directories. Zero residue.
+**Your shell rc files are safe**: uninstall only strips the marker-bounded block — it never restores rc files from the install-time backup, so aliases and config you added *after* installing are preserved. Files we replaced wholesale (e.g. a pre-existing `starship.toml`) are restored from backup, the Terminal.app profile is removed (your previous default profile comes back), deployed files are deleted, and empty directories pruned. Pre-install backups are kept at `~/.local/share/ewallis-terminal/backups/` as a safety net — delete them anytime or use `--purge`.
 
 ---
 
