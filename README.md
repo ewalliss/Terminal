@@ -57,8 +57,8 @@ A Terminal profile only carries *looks* — the Starship prompt, banner, and zsh
 One-line install (downloads + verifies + runs Apple's installer):
 
 ```sh
-curl -fLO https://github.com/ewalliss/Terminal/releases/latest/download/EwallisTerminal-2.2.0.pkg
-sudo installer -pkg EwallisTerminal-2.2.0.pkg -target /
+curl -fLO https://github.com/ewalliss/Terminal/releases/latest/download/EwallisTerminal-2.3.0.pkg
+sudo installer -pkg EwallisTerminal-2.3.0.pkg -target /
 ```
 
 Or download the `.pkg` from the [latest release](https://github.com/ewalliss/Terminal/releases/latest) and double-click.
@@ -145,7 +145,7 @@ Everything ships under one directory plus one PATH binary:
 │   ├── zsh-autosuggestions/      vendored v0.7.1 (offline-safe)
 │   └── zsh-syntax-highlighting/  vendored 0.8.0
 ├── snippets/                     zshrc.sh, zprofile.sh, bashrc.sh, fish.fish
-├── VERSION                       2.2.0
+├── VERSION                       2.3.0
 └── update-source.toml            GitHub repo for `ew update`
 
 /usr/local/bin/ew                  → /usr/local/share/.../bin/ew    (single PATH binary)
@@ -293,7 +293,7 @@ If you want to rebuild the `.pkg` yourself:
 git clone https://github.com/ewalliss/Terminal.git ~/Terminal
 cd ~/Terminal
 zsh pkg/build.sh
-# → dist/EwallisTerminal-2.2.0.pkg + .sha256 sidecar
+# → dist/EwallisTerminal-2.3.0.pkg + .sha256 sidecar
 ```
 
 The build script vendors plugins (clones pinned tags), generates 4 iTerm2 profiles + 4 Terminal.app profiles + 4 plugin themes + 2 merged Starship configs from Catppuccin palette data, then runs `pkgbuild`.

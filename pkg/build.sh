@@ -11,7 +11,7 @@ set -euo pipefail
 IFS=$'\n\t'
 export LANG="${LANG:-en_US.UTF-8}"
 
-PKG_VERSION="2.2.0"
+PKG_VERSION="2.3.0"
 PKG_ID="com.ewalliss.ewallis-terminal"
 PKG_NAME="EwallisTerminal"
 INSTALL_LOCATION="/"
