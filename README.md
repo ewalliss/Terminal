@@ -2,17 +2,48 @@
 
 A polished, opinionated terminal setup for macOS — Catppuccin colors, Starship prompt with Material Design icons, zsh productivity plugins, and a single `ew` CLI to control everything.
 
-Ships as a signed `.pkg` installer with atomic backups, full uninstall, and self-service updates.
+Two ways to use it:
+
+1. **Just the looks** — import a ready-made Terminal.app profile (colors + font + window settings in one `.terminal` file). No installer, no shell changes, removable with one click.
+2. **The full experience** — a `.pkg` installer that adds the Starship prompt, welcome banner, zsh plugins, and the `ew` CLI, with atomic backups, full uninstall, and self-service updates.
+
+---
+
+## Quick start: just the profile (no install)
+
+Each Catppuccin palette ships as a standalone Terminal.app profile carrying **all** visual settings — 16 ANSI colors + background/text/cursor/selection, JetBrainsMono Nerd Font 13, 120×32 window, block cursor, 10k scrollback, Option-as-Meta:
+
+```
+pkg/payload/usr/local/share/ewallis-terminal/terminal/
+├── EwallisTerminal-latte.terminal      light
+├── EwallisTerminal-frappe.terminal     dark · low contrast
+├── EwallisTerminal-macchiato.terminal  dark · mid contrast
+└── EwallisTerminal-mocha.terminal      dark · high contrast
+```
+
+```sh
+# 1. Install the font once (the only thing a profile file can't embed)
+brew install --cask font-jetbrains-mono-nerd-font
+
+# 2. Plug in — the profile appears in Terminal → Settings → Profiles
+open pkg/payload/usr/local/share/ewallis-terminal/terminal/EwallisTerminal-mocha.terminal
+```
+
+Click **Default** in the Profiles pane to make it stick. To remove: select it, press **−**. Nothing else on your system is touched.
+
+A Terminal profile only carries *looks* — the Starship prompt, banner, and zsh plugins are shell features and need the `.pkg` below.
 
 ---
 
 ## Highlights
 
 - **One CLI to rule them all** — `ew theme · welcome · doctor · setup · update · uninstall · banner-on/off`
-- **Live palette switching** — `ew theme latte` flips iTerm2 colors + Starship + plugin highlights *without* reinstalling
+- **Live palette switching** — `ew theme latte` flips Terminal.app + iTerm2 colors + Starship + plugin highlights *without* reinstalling
+- **Terminal.app native** — a managed "EwallisTerminal" profile in Terminal → Settings → Profiles; also available as standalone `.terminal` files for manual import (see Quick start)
 - **4 Catppuccin palettes** — Latte (light), Frappé (dark/low), Macchiato (dark/mid), Mocha (dark/high)
 - **Welcome banner** — Catppuccin-themed startup splash inspired by Claude Code v2 (toggle with `ew banner-on/off`)
 - **ESC×2 session history picker** — when prompt is empty, double-ESC opens an fzf-powered picker of commands typed in this terminal tab; when prompt has text, double-ESC clears it
+- **Ctrl+F path picker** — fzf browser for the path under your cursor (or the current directory on an empty line); explicit keybinding only, never auto-triggers while you type
 - **Zsh productivity stack** — vendored `zsh-autosuggestions` + `zsh-syntax-highlighting` + `fzf` integration (offline-safe, palette-themed)
 - **Self-service updates** — `ew update` pulls latest from GitHub Releases, SHA256-verifies, installs
 - **Atomic, reversible** — every change is backed up; `ew uninstall` restores your prior state byte-for-byte
@@ -21,13 +52,13 @@ Ships as a signed `.pkg` installer with atomic backups, full uninstall, and self
 
 ---
 
-## Install
+## Install (full experience)
 
 One-line install (downloads + verifies + runs Apple's installer):
 
 ```sh
-curl -fLO https://github.com/ewalliss/Terminal/releases/latest/download/EwallisTerminal-2.1.0.pkg
-sudo installer -pkg EwallisTerminal-2.1.0.pkg -target /
+curl -fLO https://github.com/ewalliss/Terminal/releases/latest/download/EwallisTerminal-2.2.0.pkg
+sudo installer -pkg EwallisTerminal-2.2.0.pkg -target /
 ```
 
 Or download the `.pkg` from the [latest release](https://github.com/ewalliss/Terminal/releases/latest) and double-click.
@@ -108,12 +139,13 @@ Everything ships under one directory plus one PATH binary:
 ├── bin/                          ew, ew-theme, ew-welcome, ew-doctor, ew-setup, ew-uninstall
 ├── configs/                      starship-style-a.toml, starship-style-b.toml (all 4 palettes baked in)
 ├── iterm2/                       4 dynamic profile JSONs + 2 .itermcolors presets
+├── terminal/                     4 Terminal.app .terminal profiles (also manually importable)
 ├── plugin-themes/                4 palette-specific zsh files (autosuggest + syntax-highlight + fzf colors)
 ├── plugins/
 │   ├── zsh-autosuggestions/      vendored v0.7.1 (offline-safe)
 │   └── zsh-syntax-highlighting/  vendored 0.8.0
 ├── snippets/                     zshrc.sh, zprofile.sh, bashrc.sh, fish.fish
-├── VERSION                       2.1.0
+├── VERSION                       2.2.0
 └── update-source.toml            GitHub repo for `ew update`
 
 /usr/local/bin/ew                  → /usr/local/share/.../bin/ew    (single PATH binary)
@@ -146,6 +178,8 @@ Your shell rc files (`.zshrc`, `.zprofile`, `.bashrc`, fish config) get a single
 
 Your existing content is backed up before injection, and `ew uninstall` strips the block cleanly.
 
+Terminal.app gets a managed **"EwallisTerminal"** profile (imported via `defaults`, set as your default profile — your previous default is recorded in the manifest and restored on uninstall). `ew theme` rewrites this single profile slot in place, so palette switches never accumulate duplicate profiles.
+
 ---
 
 ## Productivity features
@@ -158,6 +192,10 @@ Your existing content is backed up before injection, and `ew uninstall` strips t
 | Has text | Clear the line instantly |
 
 The picker shows **session-only history**, not your full `~/.zsh_history` — exactly what you typed in *this* tab since it opened.
+
+### Ctrl+F path picker
+
+Press **Ctrl+F** while typing a path (after `cd`, `ls`, `vim`, …) — or on an empty line — to open an fzf browser of the target directory, grouped into Folders / Files / Other. Selecting a folder drills into it; selecting a file inserts it into your command line. Deliberately bound to an explicit key only: it never auto-opens while you type.
 
 ### Welcome banner
 
@@ -198,7 +236,7 @@ ew uninstall --system     # same, plus remove /usr/local/share/ewallis-terminal/
 ew uninstall --dry-run    # show what would happen, don't change anything
 ```
 
-`ew uninstall` reads the install manifest, restores every pre-existing file from backup, strips the marker block from shell rcs, removes any file we deployed, and prunes empty directories. Zero residue.
+`ew uninstall` reads the install manifest, restores every pre-existing file from backup, strips the marker block from shell rcs, removes any file we deployed, removes the Terminal.app profile (restoring your previous default profile), and prunes empty directories. Zero residue.
 
 ---
 
@@ -255,10 +293,10 @@ If you want to rebuild the `.pkg` yourself:
 git clone https://github.com/ewalliss/Terminal.git ~/Terminal
 cd ~/Terminal
 zsh pkg/build.sh
-# → dist/EwallisTerminal-2.1.0.pkg + .sha256 sidecar
+# → dist/EwallisTerminal-2.2.0.pkg + .sha256 sidecar
 ```
 
-The build script vendors plugins (clones pinned tags), generates 4 iTerm2 profiles + 4 plugin themes + 2 merged Starship configs from Catppuccin palette data, then runs `pkgbuild`.
+The build script vendors plugins (clones pinned tags), generates 4 iTerm2 profiles + 4 Terminal.app profiles + 4 plugin themes + 2 merged Starship configs from Catppuccin palette data, then runs `pkgbuild`.
 
 ---
 
