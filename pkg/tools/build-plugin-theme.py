@@ -72,8 +72,9 @@ def render(palette_name: str) -> str:
 
 # ─── zsh-autosuggestions ─────────────────────────────────────────────────────
 # Ghost-text completion uses overlay0 — visible but subdued.
+# NOTE: ZSH_AUTOSUGGEST_STRATEGY is set by the managed .zshrc block (gated on
+# the `ew predict-off` flag), NOT here — so a theme switch never re-enables it.
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg={p["overlay0"]}'
-ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 
 # ─── zsh-syntax-highlighting (Catppuccin {palette_name}) ─────────────────────
 # Must be defined BEFORE zsh-syntax-highlighting.zsh is sourced.
@@ -125,6 +126,14 @@ _EWALLIS_FZF_COLORS="\\
 --color=border:{p["surface2"]},label:{p["text"]}"
 export FZF_DEFAULT_OPTS="$_EWALLIS_FZF_COLORS ${{FZF_DEFAULT_OPTS:-}}"
 unset _EWALLIS_FZF_COLORS
+
+# ─── fzf-tab (Catppuccin {palette_name}) ─────────────────────────────────────
+# Colors the group headers of the fzf-tab Tab menu. Read lazily at Tab-press,
+# so this is fine to set after fzf-tab was sourced. No-op if fzf-tab absent.
+zstyle ':fzf-tab:*' group-colors \\
+  '{p["mauve"]}' '{p["blue"]}' '{p["green"]}' '{p["peach"]}' \\
+  '{p["teal"]}' '{p["pink"]}' '{p["yellow"]}' '{p["sapphire"]}'
+zstyle ':fzf-tab:*' prefix ''
 """
 
 
