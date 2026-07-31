@@ -4,8 +4,9 @@
 
 # ─── zsh-autosuggestions ─────────────────────────────────────────────────────
 # Ghost-text completion uses overlay0 — visible but subdued.
+# NOTE: ZSH_AUTOSUGGEST_STRATEGY is set by the managed .zshrc block (gated on
+# the `ew predict-off` flag), NOT here — so a theme switch never re-enables it.
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#6e738d'
-ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 
 # ─── zsh-syntax-highlighting (Catppuccin macchiato) ─────────────────────
 # Must be defined BEFORE zsh-syntax-highlighting.zsh is sourced.
@@ -57,3 +58,11 @@ _EWALLIS_FZF_COLORS="\
 --color=border:#5b6078,label:#cad3f5"
 export FZF_DEFAULT_OPTS="$_EWALLIS_FZF_COLORS ${FZF_DEFAULT_OPTS:-}"
 unset _EWALLIS_FZF_COLORS
+
+# ─── fzf-tab (Catppuccin macchiato) ─────────────────────────────────────
+# Colors the group headers of the fzf-tab Tab menu. Read lazily at Tab-press,
+# so this is fine to set after fzf-tab was sourced. No-op if fzf-tab absent.
+zstyle ':fzf-tab:*' group-colors \
+  '#c6a0f6' '#8aadf4' '#a6da95' '#f5a97f' \
+  '#8bd5ca' '#f5bde6' '#eed49f' '#7dc4e4'
+zstyle ':fzf-tab:*' prefix ''
