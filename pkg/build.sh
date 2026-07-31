@@ -11,7 +11,7 @@ set -euo pipefail
 IFS=$'\n\t'
 export LANG="${LANG:-en_US.UTF-8}"
 
-PKG_VERSION="3.1.0"  # v3.1 — opt-in live autocomplete (zsh-autocomplete)
+PKG_VERSION="3.0.1"  # v3.0.1 — opt-in live autocomplete (zsh-autocomplete)
 PKG_ID="com.ewalliss.ewallis-terminal"
 PKG_NAME="EwallisTerminal"
 INSTALL_LOCATION="/"
