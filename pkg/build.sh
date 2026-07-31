@@ -11,7 +11,7 @@ set -euo pipefail
 IFS=$'\n\t'
 export LANG="${LANG:-en_US.UTF-8}"
 
-PKG_VERSION="2.3.0"
+PKG_VERSION="3.0.0"  # v3.0 — completion prediction + auto-harvester + fzf-tab
 PKG_ID="com.ewalliss.ewallis-terminal"
 PKG_NAME="EwallisTerminal"
 INSTALL_LOCATION="/"
@@ -100,6 +100,8 @@ vendor_plugin() {
 }
 vendor_plugin zsh-autosuggestions     https://github.com/zsh-users/zsh-autosuggestions     v0.7.1
 vendor_plugin zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting 0.8.0
+vendor_plugin zsh-completions         https://github.com/zsh-users/zsh-completions         0.36.0
+vendor_plugin fzf-tab                  https://github.com/Aloxaf/fzf-tab                    v1.3.0
 
 # Validate dynamic-profile JSON before shipping (python3 ships with CLT)
 for json in "$PKG_SHARE"/iterm2/*.json; do
@@ -126,15 +128,24 @@ done
 ok "snippets/  (4 files)"
 
 # Validate bin scripts
-for b in ew ew-setup ew-uninstall ew-theme ew-doctor ew-welcome ew-config; do
+for b in ew ew-setup ew-uninstall ew-theme ew-doctor ew-welcome ew-config ew-completions; do
   [[ -f "$PKG_SHARE/bin/$b" ]] || { err "missing bin: $b"; exit 1; }
 done
-ok "bin/  (7 scripts — unified under ew)"
+ok "bin/  (8 scripts — unified under ew)"
+
+# Validate the shared harvester library exists and is valid zsh
+[[ -f "$PKG_SHARE/zsh/harvest.zsh" ]] || { err "missing zsh/harvest.zsh"; exit 1; }
+/bin/zsh -n "$PKG_SHARE/zsh/harvest.zsh" || { err "harvest.zsh syntax error"; exit 1; }
+ok "zsh/harvest.zsh (valid)"
 
 # Validate vendored plugins
-for p in zsh-autosuggestions/zsh-autosuggestions.zsh zsh-syntax-highlighting/zsh-syntax-highlighting.zsh; do
+for p in zsh-autosuggestions/zsh-autosuggestions.zsh \
+         zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+         fzf-tab/fzf-tab.plugin.zsh; do
   [[ -f "$PKG_SHARE/plugins/$p" ]] || { err "missing plugin file: $p"; exit 1; }
 done
+# zsh-completions is an fpath dir (no single loadable script) — check the dir
+[[ -d "$PKG_SHARE/plugins/zsh-completions/src" ]] || { err "missing zsh-completions/src"; exit 1; }
 ok "plugins/  (vendored)"
 
 # Validate plugin themes (zsh syntax check — catches typos in generated files)

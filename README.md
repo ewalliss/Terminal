@@ -44,7 +44,9 @@ A Terminal profile only carries *looks* — the Starship prompt, banner, and zsh
 - **Welcome banner** — Catppuccin-themed startup splash inspired by Claude Code v2 (toggle with `ew banner-on/off`)
 - **ESC×2 session history picker** — when prompt is empty, double-ESC opens an fzf-powered picker of commands typed in this terminal tab; when prompt has text, double-ESC clears it
 - **Ctrl+F path picker** — fzf browser for the path under your cursor (or the current directory on an empty line); explicit keybinding only, never auto-triggers while you type
-- **Zsh productivity stack** — vendored `zsh-autosuggestions` + `zsh-syntax-highlighting` + `fzf` integration (offline-safe, palette-themed)
+- **Fish-style completion prediction** — ghost text suggests a tool's subcommands/flags from zsh's completion system (`git ch`→`git checkout`), not just your history. An auto-detect harvester generates completions for tools that don't ship them (`gh`, `docker`, `kubectl`) on first use, cached and kept fresh by binary mtime. Toggle with `ew predict-on/off`; manage with `ew completions`.
+- **fzf-tab Tab menu** — Tab opens a palette-themed fzf picker showing completions with descriptions; falls back to zsh's native menu when fzf is absent
+- **Zsh productivity stack** — vendored `zsh-autosuggestions` + `zsh-syntax-highlighting` + `zsh-completions` + `fzf-tab` (offline-safe, palette-themed)
 - **Self-service updates** — `ew update` pulls latest from GitHub Releases, SHA256-verifies, installs
 - **Atomic, reversible** — every change is backed up; `ew uninstall` restores your prior state byte-for-byte
 - **Pre-flight checks** — `ew doctor` detects + offers to brew-install missing deps (starship, fzf, JetBrains Mono Nerd Font)
@@ -57,8 +59,8 @@ A Terminal profile only carries *looks* — the Starship prompt, banner, and zsh
 One-line install (downloads + verifies + runs Apple's installer):
 
 ```sh
-curl -fLO https://github.com/ewalliss/Terminal/releases/latest/download/EwallisTerminal-2.3.0.pkg
-sudo installer -pkg EwallisTerminal-2.3.0.pkg -target /
+curl -fLO https://github.com/ewalliss/Terminal/releases/latest/download/EwallisTerminal-3.0.0.pkg
+sudo installer -pkg EwallisTerminal-3.0.0.pkg -target /
 ```
 
 Or download the `.pkg` from the [latest release](https://github.com/ewalliss/Terminal/releases/latest) and double-click.
@@ -85,6 +87,10 @@ ew welcome              Print the Catppuccin welcome banner right now
 ew banner-on            Show banner on every new shell (default)
 ew banner-off           Disable banner
 ew banner-toggle        Flip current state
+ew predict-on           Predict subcommands/flags from completions (default)
+ew predict-off          Predict from history only (lighter)
+ew completions          Manage auto-harvested completions (list/add/refresh/clear)
+ew completions add <t>  Force-harvest one tool's completion now
 ew doctor               Check deps; offer to brew-install missing ones
 ew doctor --self-test   Sandboxed install/theme/uninstall regression test
 ew setup                Re-run per-user setup (rc inject, plugin theme deploy)
@@ -143,9 +149,12 @@ Everything ships under one directory plus one PATH binary:
 ├── plugin-themes/                4 palette-specific zsh files (autosuggest + syntax-highlight + fzf colors)
 ├── plugins/
 │   ├── zsh-autosuggestions/      vendored v0.7.1 (offline-safe)
-│   └── zsh-syntax-highlighting/  vendored 0.8.0
+│   ├── zsh-syntax-highlighting/  vendored 0.8.0
+│   ├── zsh-completions/          vendored 0.36.0 (extra completion definitions)
+│   └── fzf-tab/                  vendored v1.3.0 (fzf Tab menu)
+├── zsh/                          harvest.zsh (completion harvester), path-picker.zsh
 ├── snippets/                     zshrc.sh, zprofile.sh, bashrc.sh, fish.fish
-├── VERSION                       2.3.0
+├── VERSION                       3.0.0
 └── update-source.toml            GitHub repo for `ew update`
 
 /usr/local/bin/ew                  → /usr/local/share/.../bin/ew    (single PATH binary)
@@ -197,6 +206,27 @@ The picker shows **session-only history**, not your full `~/.zsh_history` — ex
 
 Press **Ctrl+F** while typing a path (after `cd`, `ls`, `vim`, …) — or on an empty line — to open an fzf browser of the target directory, grouped into Folders / Files / Other. Selecting a folder drills into it; selecting a file inserts it into your command line. Deliberately bound to an explicit key only: it never auto-opens while you type.
 
+### Completion prediction
+
+Ghost text isn't just from your history — with the completion engine loaded, typing `git ch` suggests `git checkout` even on a fresh machine, because it knows git's subcommands. Works for any tool with a zsh completion (macOS ships ~966: git, ssh, brew, tar, …).
+
+For modern CLIs that generate their completions on demand (`gh`, `docker`, `kubectl`, `terraform`, …), an **auto-detect harvester** runs the first time you use the tool: it tries `<tool> completion zsh` in the background and, if the tool emits a valid completion, caches it so future shells predict and Tab-complete it. Freshness is keyed on the tool's binary mtime — upgrade the tool and it re-harvests automatically. All work is async (a fork-free `preexec` hook + detached worker), so startup and typing stay fast; a newly harvested completion becomes active on the next shell.
+
+```sh
+ew predict-off            # predict from history only (lighter)
+ew predict-on             # history + completions (default)
+ew completions            # list harvested tools + mtime drift
+ew completions add gh     # force-harvest one tool right now
+ew completions refresh    # re-probe everything
+ew completions off        # stop auto-harvesting (keeps existing cache)
+```
+
+Disable entirely for a shell with `EWALLIS_NO_HARVEST=1`. The harvester never probes interactive/REPL/network tools (a denylist), bounds every probe with a 5-second timeout, and negative-caches tools that don't support it so they aren't retried.
+
+### fzf-tab Tab menu
+
+Press **Tab** and completions open in an fzf picker showing each candidate with its description, colored to your active palette (it inherits `FZF_DEFAULT_OPTS`, so it recolors on every `ew theme`). When fzf isn't installed it falls back to zsh's native `menu select`.
+
 ### Welcome banner
 
 Inspired by Claude Code v2's `LogoV2` layout — rounded box with inset title, two columns separated by a divider, ASCII robot mascot on the left, tips + what's new on the right. Colors flip automatically when you change palette.
@@ -205,11 +235,13 @@ Disable with `ew banner-off`. Per-shell skip: `EWALLIS_NO_BANNER=1 zsh`.
 
 ### Plugins
 
-- **zsh-autosuggestions** — ghost-text completion from your history
+- **zsh-autosuggestions** — fish-style ghost text (history + completion prediction)
 - **zsh-syntax-highlighting** — command coloring as you type
+- **zsh-completions** — extra completion definitions for common tools
+- **fzf-tab** — fuzzy Tab menu with descriptions
 - **fzf** integration — `Ctrl-R` for history, `Ctrl-T` for files, `Alt-C` for directories (binary not vendored — installed via `brew`; `ew doctor` will offer to install it)
 
-All three are palette-themed: their colors are regenerated by `ew theme` so they match your active Catppuccin variant.
+All are palette-themed: their colors are regenerated by `ew theme` so they match your active Catppuccin variant.
 
 ---
 
@@ -294,7 +326,7 @@ If you want to rebuild the `.pkg` yourself:
 git clone https://github.com/ewalliss/Terminal.git ~/Terminal
 cd ~/Terminal
 zsh pkg/build.sh
-# → dist/EwallisTerminal-2.3.0.pkg + .sha256 sidecar
+# → dist/EwallisTerminal-3.0.0.pkg + .sha256 sidecar
 ```
 
 The build script vendors plugins (clones pinned tags), generates 4 iTerm2 profiles + 4 Terminal.app profiles + 4 plugin themes + 2 merged Starship configs from Catppuccin palette data, then runs `pkgbuild`.
