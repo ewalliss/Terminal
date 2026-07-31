@@ -22,6 +22,8 @@ mkdir -p "$CFG_DIR"
 typeset -a FEATURES=(
   "colors|Syntax colors|Colorize commands, paths, flags and strings as you type|$CFG_DIR/colors.disabled"
   "banner|Welcome banner|Show the EwallisTerminal banner on every new terminal window|$CFG_DIR/banner.disabled"
+  "predict|Completion prediction|Suggest subcommands and flags (git ch→checkout) as you type|$CFG_DIR/predict-completion.disabled"
+  "harvest|Auto-harvest completions|Auto-generate completions for tools like gh/docker/kubectl on first use|$CFG_DIR/harvest.disabled"
 )
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -244,6 +244,18 @@ else
   fi
 fi
 
+# 4b. Remove runtime-created completion artifacts. These are written at
+#     shell-startup (harvester + compinit), NOT via the manifest, so the
+#     deployed-file sweep misses them — and a leftover would block the prune
+#     of ~/.config/ewallis-terminal below.
+_ew_cfg="$HOME/.config/ewallis-terminal"
+if [[ -d "$_ew_cfg/completions" || -d "$_ew_cfg/harvest" || -e "$_ew_cfg/zcompdump" ]]; then
+  say "Removing harvested completions"
+  run "/bin/rm -rf -- ${(q)_ew_cfg}/completions ${(q)_ew_cfg}/harvest"
+  run "/bin/rm -f  -- ${(q)_ew_cfg}/zcompdump ${(q)_ew_cfg}/zcompdump.zwc ${(q)_ew_cfg}/harvest.disabled"
+  (( DRY_RUN )) || ok "removed completion cache"
+fi
+
 # 5. Best-effort: rmdir any now-empty dirs we created (~/.config/ewallis-terminal,
 #    iTerm2 DynamicProfiles only if empty). rmdir refuses non-empty dirs so this
 #    is safe against accidental data loss.

@@ -6,14 +6,66 @@
 _EWALLIS_PKG_ROOT="/usr/local/share/ewallis-terminal"
 _EWALLIS_PLUGINS="$_EWALLIS_PKG_ROOT/plugins"
 
-# 1. zsh-autosuggestions — ghost-text history completion (must be before s-h)
-#    Guard: skip if user already has it loaded via oh-my-zsh, brew, etc.
+# 1. Completion engine — powers Tab completion AND completion-based prediction.
+#    macOS zsh ships ~966 completion definitions (git, ssh, brew, kubectl…);
+#    without compinit they sit unused. Guard: skip if already initialized
+#    (oh-my-zsh / a user's own compinit call defines compdef).
+if (( ! $+functions[compdef] )); then
+  # Free-tier sources first (zero cost, kept fresh by whoever installed them):
+  #   • vendored zsh-completions pack
+  #   • package-manager site-functions (brew keeps these current on upgrade)
+  #   • our auto-harvested completions cache (see harvest.zsh)
+  [[ -d "$_EWALLIS_PLUGINS/zsh-completions/src" ]] \
+    && fpath=("$_EWALLIS_PLUGINS/zsh-completions/src" $fpath)
+  if command -v brew >/dev/null 2>&1; then
+    _ewallis_brew_sf="$(brew --prefix 2>/dev/null)/share/zsh/site-functions"
+    [[ -d "$_ewallis_brew_sf" ]] && fpath=("$_ewallis_brew_sf" $fpath)
+    unset _ewallis_brew_sf
+  fi
+  [[ -d "$HOME/.config/ewallis-terminal/completions" ]] \
+    && fpath=("$HOME/.config/ewallis-terminal/completions" $fpath)
+
+  autoload -Uz compinit
+  # Cache the compdump per-day to keep startup fast; -C skips the security
+  # audit. Safe: fpath dirs are either root-owned (/usr/local) or user-owned
+  # (~/.config/ewallis-terminal/completions), and the harvester writes 0644.
+  _ewallis_zcd="$HOME/.config/ewallis-terminal/zcompdump"
+  if [[ -n "$_ewallis_zcd"(#qN.mh-24) ]]; then
+    compinit -C -d "$_ewallis_zcd"
+  else
+    mkdir -p "${_ewallis_zcd:h}"
+    compinit -d "$_ewallis_zcd"
+  fi
+  unset _ewallis_zcd
+fi
+
+# 2. Auto-detect completion harvester — when you run a tool with no completion,
+#    it generates one in the background via `<tool> completion zsh` and caches
+#    it for future shells. Off via `ew completions off` or EWALLIS_NO_HARVEST=1.
+if [[ -z "${EWALLIS_NO_HARVEST:-}" ]] \
+   && [[ ! -f "$HOME/.config/ewallis-terminal/harvest.disabled" ]] \
+   && [[ -r "$_EWALLIS_PKG_ROOT/zsh/harvest.zsh" ]] \
+   && (( $+functions[compdef] )); then
+  source "$_EWALLIS_PKG_ROOT/zsh/harvest.zsh"
+  autoload -Uz add-zsh-hook
+  add-zsh-hook preexec _ew_harvest_maybe
+fi
+
+# 3. zsh-autosuggestions — fish-style ghost text (must be before s-h)
+#    Prediction sources: your history + (by default) zsh's completion system,
+#    so `git ch`→`git checkout` is suggested even on a fresh machine. Drop the
+#    completion source via `ew predict-off` if you find typing laggy.
+if [[ -f "$HOME/.config/ewallis-terminal/predict-completion.disabled" ]]; then
+  ZSH_AUTOSUGGEST_STRATEGY=(history)
+else
+  ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+fi
 if [[ -r "$_EWALLIS_PLUGINS/zsh-autosuggestions/zsh-autosuggestions.zsh" ]] \
    && (( ! $+functions[_zsh_autosuggest_start] )); then
   source "$_EWALLIS_PLUGINS/zsh-autosuggestions/zsh-autosuggestions.zsh"
 fi
 
-# 2. fzf — bindings + completion (binary not vendored; comes via brew)
+# 4. fzf — bindings + completion (binary not vendored; comes via brew)
 #    We cache `brew --prefix fzf` in ~/.config/ewallis-terminal/fzf-prefix to
 #    avoid paying ~80ms on every shell startup.
 if command -v fzf >/dev/null 2>&1; then
@@ -27,12 +79,27 @@ if command -v fzf >/dev/null 2>&1; then
   fi
 fi
 
-# 3. Starship prompt
+# 5. fzf-tab — fish-style Tab menu: an fzf picker with completion descriptions,
+#    themed to the active palette (inherits FZF_DEFAULT_OPTS). Requires fzf +
+#    compinit; degrades to zsh's native menu-select when fzf is absent.
+if command -v fzf >/dev/null 2>&1 \
+   && [[ -r "$_EWALLIS_PLUGINS/fzf-tab/fzf-tab.plugin.zsh" ]] \
+   && (( $+functions[compdef] )) \
+   && (( ! $+functions[enable-fzf-tab] )); then
+  source "$_EWALLIS_PLUGINS/fzf-tab/fzf-tab.plugin.zsh"
+  zstyle ':completion:*' menu no                  # fzf-tab requires menu off
+  zstyle ':fzf-tab:*' use-fzf-default-opts yes    # inherit palette colors
+  zstyle ':fzf-tab:*' switch-group ',' '.'
+else
+  zstyle ':completion:*' menu select              # pleasant native fallback
+fi
+
+# 6. Starship prompt
 if command -v starship >/dev/null 2>&1; then
   eval "$(starship init zsh)"
 fi
 
-# 4. ESC-ESC context-aware widget:
+# 7. ESC-ESC context-aware widget:
 #       buffer empty  → open session history picker (fzf)
 #       buffer dirty  → clear the line (legacy behavior)
 #    Session = commands typed since this shell started. We record the starting
@@ -78,13 +145,13 @@ _ewallis_esc_handler() {
 zle -N _ewallis_esc_handler
 bindkey '\e\e' _ewallis_esc_handler
 
-# 5. Path picker — Ctrl+F opens an fzf browser for the path under the cursor
+# 8. Path picker — Ctrl+F opens an fzf browser for the path under the cursor
 #    (or $PWD on an empty line). Explicit keybinding only; never auto-triggers.
 if [[ -r "$_EWALLIS_PKG_ROOT/zsh/path-picker.zsh" ]]; then
   source "$_EWALLIS_PKG_ROOT/zsh/path-picker.zsh"
 fi
 
-# 6. Palette-aware theming (sets ZSH_HIGHLIGHT_STYLES / autosuggest / fzf colors)
+# 9. Palette-aware theming (sets ZSH_HIGHLIGHT_STYLES / autosuggest / fzf colors)
 #    Regenerated by `ewallis-theme` on every palette switch.
 #    Skipped when colors are disabled via `ew colors-off`.
 if [[ ! -f "$HOME/.config/ewallis-terminal/colors.disabled" ]] \
@@ -92,7 +159,7 @@ if [[ ! -f "$HOME/.config/ewallis-terminal/colors.disabled" ]] \
   source "$HOME/.config/ewallis-terminal/plugin-theme.zsh"
 fi
 
-# 7. zsh-syntax-highlighting — MUST be sourced last
+# 10. zsh-syntax-highlighting — MUST be sourced last
 #    Guard: skip if user already has it loaded via oh-my-zsh, brew, etc.
 #    Also skipped when colors are disabled via `ew colors-off`.
 if [[ ! -f "$HOME/.config/ewallis-terminal/colors.disabled" ]] \
@@ -101,12 +168,12 @@ if [[ ! -f "$HOME/.config/ewallis-terminal/colors.disabled" ]] \
   source "$_EWALLIS_PLUGINS/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 fi
 
-# 8. Doctor nag — silent if all deps satisfied
+# 11. Doctor nag — silent if all deps satisfied
 if [[ -f "$HOME/.local/share/ewallis-terminal/needs-doctor" ]]; then
   print -P -- "%F{214}!%f ewallis-terminal: missing deps. Run: %F{141}ewallis-terminal-doctor%f"
 fi
 
-# 9. Welcome banner — shows once per top-level interactive shell.
+# 12. Welcome banner — shows once per top-level interactive shell.
 #    Guards:
 #      • interactive only      (-o interactive)
 #      • not already shown     ($EWALLIS_BANNER_SHOWN is exported so subshells

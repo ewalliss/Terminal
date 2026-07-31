@@ -1,0 +1,169 @@
+#!/usr/bin/env zsh
+# ─────────────────────────────────────────────────────────────────────────────
+# ew-completions — manage the auto-detect completion harvester.
+#
+# The harvester runs automatically: when you use a tool with no zsh completion,
+# it tries `<tool> completion zsh` in the background and caches the result so
+# future shells predict/complete it. These commands inspect and steer it.
+#
+# Usage:
+#   ew completions                 Show status + summary (alias for `list`)
+#   ew completions list            List harvested + skipped tools, with mtime drift
+#   ew completions add <tool>…     Force-harvest now (foreground; shows result)
+#   ew completions refresh         Re-probe every known tool (harvested + skipped)
+#   ew completions clear [tool]    Remove one tool's cache, or all if omitted
+#   ew completions off             Disable auto-harvesting (keeps existing cache)
+#   ew completions on              Re-enable auto-harvesting
+# ─────────────────────────────────────────────────────────────────────────────
+emulate -L zsh
+setopt no_unset pipefail
+export LANG="${LANG:-en_US.UTF-8}"
+
+PKG_ROOT="${EWALLIS_PKG_ROOT:-/usr/local/share/ewallis-terminal}"
+CFG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/ewallis-terminal"
+COMP_DIR="$CFG_DIR/completions"
+HARVEST_DIR="$CFG_DIR/harvest"
+DISABLE_FLAG="$CFG_DIR/harvest.disabled"
+
+say()  { print -P -- "%F{141}==>%f $*"; }
+ok()   { print -P -- "%F{114}  ✓%f $*"; }
+info() { print -P -- "%F{245}    $*%f"; }
+warn() { print -P -- "%F{214}  !%f $*"; }
+err()  { print -u2 -P -- "%F{196}  ✗%f $*"; }
+
+# Load the shared harvester library (probe/validate/write/force helpers).
+HARVEST_LIB="$PKG_ROOT/zsh/harvest.zsh"
+if [[ -r "$HARVEST_LIB" ]]; then
+  source "$HARVEST_LIB"
+else
+  err "harvester library missing: $HARVEST_LIB"
+  exit 70
+fi
+
+zmodload -F zsh/stat b:zstat 2>/dev/null
+
+# current binary mtime (empty if not found)
+_bin_mtime() {
+  local bin=${commands[$1]:-}
+  [[ -n $bin ]] || return 1
+  local -a st
+  zstat -A st +mtime -- "$bin" 2>/dev/null || return 1
+  print -r -- $st[1]
+}
+
+usage() { sed -n '4,22p' "${0:A}" | sed -E 's/^# ?//'; }
+
+cmd_list() {
+  local status_line
+  if [[ -f "$DISABLE_FLAG" ]]; then
+    status_line="%F{245}off%f (auto-harvest disabled — ew completions on)"
+  else
+    status_line="%F{114}on%f"
+  fi
+  print -P -- ""
+  print -P -- "  auto-harvest: $status_line"
+  print -P -- ""
+
+  local any=0 f tool rec_mt bin cur_mt drift present
+  if [[ -d "$HARVEST_DIR/meta" ]]; then
+    for f in "$HARVEST_DIR"/meta/*(N); do
+      tool="${f:t}"
+      any=1
+      read -r rec_mt bin < "$f"
+      present="✓"; [[ -f "$COMP_DIR/_$tool" ]] || present="%F{214}missing%f"
+      cur_mt="$(_bin_mtime "$tool" || true)"
+      drift=""
+      [[ -n "$cur_mt" && "$cur_mt" != "$rec_mt" ]] && drift=" %F{214}(binary changed — will re-harvest)%f"
+      [[ -z "$cur_mt" ]] && drift=" %F{245}(tool no longer on PATH)%f"
+      print -P -- "  %F{114}●%f $tool  ${present}${drift}"
+    done
+  fi
+  if [[ -d "$HARVEST_DIR/neg" ]]; then
+    for f in "$HARVEST_DIR"/neg/*(N); do
+      tool="${f:t}"
+      any=1
+      print -P -- "  %F{245}○ $tool  (no zsh completion — skipped)%f"
+    done
+  fi
+  (( any )) || info "nothing harvested yet — completions appear as you use tools"
+  print -P -- ""
+}
+
+cmd_add() {
+  (( $# )) || { err "usage: ew completions add <tool>…"; return 2; }
+  local tool rc=0
+  for tool in "$@"; do
+    say "Harvesting $tool"
+    if _ew_harvest_force "$tool"; then
+      ok "$tool → completion cached (open a new shell to use it)"
+    else
+      warn "$tool has no usable zsh completion — skipped"
+      rc=1
+    fi
+  done
+  return $rc
+}
+
+cmd_refresh() {
+  local -a tools=()
+  local f
+  for f in "$HARVEST_DIR"/meta/*(N) "$HARVEST_DIR"/neg/*(N); do
+    tools+=("${f:t}")
+  done
+  if (( ! ${#tools} )); then
+    info "nothing to refresh yet"
+    return 0
+  fi
+  say "Re-probing ${#tools} tool(s)"
+  local tool
+  for tool in $tools; do
+    if _ew_harvest_force "$tool"; then
+      ok "$tool"
+    else
+      print -P -- "  %F{245}○ $tool (still no completion)%f"
+    fi
+  done
+  info "open a new shell to pick up refreshed completions"
+}
+
+cmd_clear() {
+  if (( $# )); then
+    local tool
+    for tool in "$@"; do
+      rm -f "$COMP_DIR/_$tool" "$HARVEST_DIR/meta/$tool" "$HARVEST_DIR/neg/$tool"
+      ok "cleared: $tool"
+    done
+  else
+    rm -rf "$COMP_DIR" "$HARVEST_DIR"
+    ok "cleared all harvested completions"
+  fi
+  rm -f "$CFG_DIR/zcompdump" "$CFG_DIR/zcompdump.zwc"
+  info "open a new shell to rebuild the completion cache"
+}
+
+cmd_off() {
+  mkdir -p "$CFG_DIR"
+  touch "$DISABLE_FLAG"
+  ok "auto-harvest: off (existing completions kept)"
+  info "re-enable with: ew completions on"
+}
+
+cmd_on() {
+  rm -f "$DISABLE_FLAG"
+  ok "auto-harvest: on"
+  info "takes effect in a new shell"
+}
+
+# ─── Dispatch ────────────────────────────────────────────────────────────────
+cmd="${1:-list}"
+(( $# )) && shift
+case "$cmd" in
+  list|status|"")   cmd_list ;;
+  add)              cmd_add "$@" ;;
+  refresh)          cmd_refresh ;;
+  clear)            cmd_clear "$@" ;;
+  off)              cmd_off ;;
+  on)               cmd_on ;;
+  help|--help|-h)   usage ;;
+  *) err "unknown: completions $cmd"; print -- ""; usage; exit 2 ;;
+esac
