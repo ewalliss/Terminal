@@ -59,8 +59,8 @@ A Terminal profile only carries *looks* — the Starship prompt, banner, and zsh
 One-line install (downloads + verifies + runs Apple's installer):
 
 ```sh
-curl -fLO https://github.com/ewalliss/Terminal/releases/latest/download/EwallisTerminal-3.0.0.pkg
-sudo installer -pkg EwallisTerminal-3.0.0.pkg -target /
+curl -fLO https://github.com/ewalliss/Terminal/releases/latest/download/EwallisTerminal-3.1.0.pkg
+sudo installer -pkg EwallisTerminal-3.1.0.pkg -target /
 ```
 
 Or download the `.pkg` from the [latest release](https://github.com/ewalliss/Terminal/releases/latest) and double-click.
@@ -91,6 +91,7 @@ ew predict-on           Predict subcommands/flags from completions (default)
 ew predict-off          Predict from history only (lighter)
 ew completions          Manage auto-harvested completions (list/add/refresh/clear)
 ew completions add <t>  Force-harvest one tool's completion now
+ew autocomplete on/off  Live narrowing list under the prompt (opt-in) vs Tab menu
 ew doctor               Check deps; offer to brew-install missing ones
 ew doctor --self-test   Sandboxed install/theme/uninstall regression test
 ew setup                Re-run per-user setup (rc inject, plugin theme deploy)
@@ -154,7 +155,7 @@ Everything ships under one directory plus one PATH binary:
 │   └── fzf-tab/                  vendored v1.3.0 (fzf Tab menu)
 ├── zsh/                          harvest.zsh (completion harvester), path-picker.zsh
 ├── snippets/                     zshrc.sh, zprofile.sh, bashrc.sh, fish.fish
-├── VERSION                       3.0.0
+├── VERSION                       3.1.0
 └── update-source.toml            GitHub repo for `ew update`
 
 /usr/local/bin/ew                  → /usr/local/share/.../bin/ew    (single PATH binary)
@@ -223,9 +224,20 @@ ew completions off        # stop auto-harvesting (keeps existing cache)
 
 Disable entirely for a shell with `EWALLIS_NO_HARVEST=1`. The harvester never probes interactive/REPL/network tools (a denylist), bounds every probe with a 5-second timeout, and negative-caches tools that don't support it so they aren't retried.
 
-### fzf-tab Tab menu
+### Tab menu vs live autocomplete
 
-Press **Tab** and completions open in an fzf picker showing each candidate with its description, colored to your active palette (it inherits `FZF_DEFAULT_OPTS`, so it recolors on every `ew theme`). When fzf isn't installed it falls back to zsh's native `menu select`.
+Two completion-menu styles, mutually exclusive — pick one:
+
+- **fzf-tab (default)** — press **Tab** and completions open in an fzf picker showing each candidate with its description, colored to your palette (inherits `FZF_DEFAULT_OPTS`, recolors on every `ew theme`). Zero idle cost; only runs on Tab. Falls back to native `menu select` without fzf.
+- **Live autocomplete (opt-in)** — a narrowing list appears *under the prompt as you type*, navigable with arrow keys, filtering live as you add characters. Powered by `zsh-autocomplete`. It's **heavier** (runs completion on every keystroke), so it's **off by default** and its plugin is loaded only when enabled — when off, none of its code runs, so there is zero per-keystroke cost.
+
+```sh
+ew autocomplete on      # live narrowing list under the prompt
+ew autocomplete off     # back to the Tab-triggered fzf menu (default, faster)
+ew autocomplete toggle
+```
+
+Enabling live autocomplete automatically stands fzf-tab down (they both own the menu), and disabling it restores fzf-tab — no conflict.
 
 ### Welcome banner
 
@@ -326,7 +338,7 @@ If you want to rebuild the `.pkg` yourself:
 git clone https://github.com/ewalliss/Terminal.git ~/Terminal
 cd ~/Terminal
 zsh pkg/build.sh
-# → dist/EwallisTerminal-3.0.0.pkg + .sha256 sidecar
+# → dist/EwallisTerminal-3.1.0.pkg + .sha256 sidecar
 ```
 
 The build script vendors plugins (clones pinned tags), generates 4 iTerm2 profiles + 4 Terminal.app profiles + 4 plugin themes + 2 merged Starship configs from Catppuccin palette data, then runs `pkgbuild`.

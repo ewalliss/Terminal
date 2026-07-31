@@ -79,10 +79,25 @@ if command -v fzf >/dev/null 2>&1; then
   fi
 fi
 
-# 5. fzf-tab — fish-style Tab menu: an fzf picker with completion descriptions,
-#    themed to the active palette (inherits FZF_DEFAULT_OPTS). Requires fzf +
-#    compinit; degrades to zsh's native menu-select when fzf is absent.
-if command -v fzf >/dev/null 2>&1 \
+# 5. Completion menu — pick ONE of two paradigms (they conflict, so never both):
+#
+#    (a) Live autocomplete (opt-in, `ew autocomplete on`): a narrowing list
+#        under the prompt that updates as you type, arrow-key navigable. It is
+#        HEAVIER (runs completion on every keystroke), so it is OFF by default
+#        and its plugin is sourced ONLY when the enable-flag exists — when off,
+#        none of its code loads and there is zero per-keystroke cost.
+#
+#    (b) fzf-tab (default): a fuzzy Tab-triggered picker with descriptions,
+#        themed to the palette. Zero idle cost; only runs when you press Tab.
+if [[ -f "$HOME/.config/ewallis-terminal/autocomplete.enabled" ]] \
+   && [[ -r "$_EWALLIS_PLUGINS/zsh-autocomplete/zsh-autocomplete.plugin.zsh" ]]; then
+  # Performance-minded defaults BEFORE sourcing: short list, start after 1 char.
+  zstyle ':autocomplete:*' min-input 1            # don't list on an empty line
+  zstyle ':autocomplete:*' list-lines 8           # a few candidates under the prompt
+  zstyle ':autocomplete:*' insert-unambiguous yes # fill the common prefix
+  zstyle ':autocomplete:*' fzf-completion no
+  source "$_EWALLIS_PLUGINS/zsh-autocomplete/zsh-autocomplete.plugin.zsh"
+elif command -v fzf >/dev/null 2>&1 \
    && [[ -r "$_EWALLIS_PLUGINS/fzf-tab/fzf-tab.plugin.zsh" ]] \
    && (( $+functions[compdef] )) \
    && (( ! $+functions[enable-fzf-tab] )); then

@@ -249,10 +249,11 @@ fi
 #     deployed-file sweep misses them — and a leftover would block the prune
 #     of ~/.config/ewallis-terminal below.
 _ew_cfg="$HOME/.config/ewallis-terminal"
-if [[ -d "$_ew_cfg/completions" || -d "$_ew_cfg/harvest" || -e "$_ew_cfg/zcompdump" ]]; then
+if [[ -d "$_ew_cfg/completions" || -d "$_ew_cfg/harvest" || -e "$_ew_cfg/zcompdump" \
+      || -f "$_ew_cfg/harvest.disabled" || -f "$_ew_cfg/autocomplete.enabled" ]]; then
   say "Removing harvested completions"
   run "/bin/rm -rf -- ${(q)_ew_cfg}/completions ${(q)_ew_cfg}/harvest"
-  run "/bin/rm -f  -- ${(q)_ew_cfg}/zcompdump ${(q)_ew_cfg}/zcompdump.zwc ${(q)_ew_cfg}/harvest.disabled"
+  run "/bin/rm -f  -- ${(q)_ew_cfg}/zcompdump ${(q)_ew_cfg}/zcompdump.zwc ${(q)_ew_cfg}/harvest.disabled ${(q)_ew_cfg}/autocomplete.enabled"
   (( DRY_RUN )) || ok "removed completion cache"
 fi
 

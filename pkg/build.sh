@@ -11,7 +11,7 @@ set -euo pipefail
 IFS=$'\n\t'
 export LANG="${LANG:-en_US.UTF-8}"
 
-PKG_VERSION="3.0.0"  # v3.0 — completion prediction + auto-harvester + fzf-tab
+PKG_VERSION="3.1.0"  # v3.1 — opt-in live autocomplete (zsh-autocomplete)
 PKG_ID="com.ewalliss.ewallis-terminal"
 PKG_NAME="EwallisTerminal"
 INSTALL_LOCATION="/"
@@ -102,6 +102,7 @@ vendor_plugin zsh-autosuggestions     https://github.com/zsh-users/zsh-autosugge
 vendor_plugin zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting 0.8.0
 vendor_plugin zsh-completions         https://github.com/zsh-users/zsh-completions         0.36.0
 vendor_plugin fzf-tab                  https://github.com/Aloxaf/fzf-tab                    v1.3.0
+vendor_plugin zsh-autocomplete        https://github.com/marlonrichert/zsh-autocomplete    25.03.19
 
 # Validate dynamic-profile JSON before shipping (python3 ships with CLT)
 for json in "$PKG_SHARE"/iterm2/*.json; do
@@ -141,7 +142,8 @@ ok "zsh/harvest.zsh (valid)"
 # Validate vendored plugins
 for p in zsh-autosuggestions/zsh-autosuggestions.zsh \
          zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
-         fzf-tab/fzf-tab.plugin.zsh; do
+         fzf-tab/fzf-tab.plugin.zsh \
+         zsh-autocomplete/zsh-autocomplete.plugin.zsh; do
   [[ -f "$PKG_SHARE/plugins/$p" ]] || { err "missing plugin file: $p"; exit 1; }
 done
 # zsh-completions is an fpath dir (no single loadable script) — check the dir

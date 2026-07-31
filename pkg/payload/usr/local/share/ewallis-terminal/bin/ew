@@ -21,6 +21,9 @@
 #   ew predict-off          Predict from history only (lighter).
 #   ew predict-toggle       Flip whichever state it's currently in.
 #   ew completions [args…]  Manage auto-harvested completions (list/add/refresh).
+#   ew autocomplete on      Live narrowing list under the prompt (heavier; opt-in).
+#   ew autocomplete off     Back to the Tab-triggered fzf menu (default; faster).
+#   ew autocomplete toggle  Flip whichever state it's currently in.
 #   ew doctor [args…]       Check dependencies; --self-test for full cycle.
 #   ew setup [args…]        Re-run per-user setup (rc inject, plugin theme).
 #   ew update [--check]     Check GitHub Releases; install latest .pkg.
@@ -41,6 +44,7 @@ CFG_DIR="$HOME/.config/ewallis-terminal"
 BANNER_OFF_FLAG="$CFG_DIR/banner.disabled"
 COLORS_OFF_FLAG="$CFG_DIR/colors.disabled"
 PREDICT_OFF_FLAG="$CFG_DIR/predict-completion.disabled"
+AUTOCOMPLETE_ON_FLAG="$CFG_DIR/autocomplete.enabled"
 STATE_FILE="$CFG_DIR/state.toml"
 
 say()  { print -P -- "%F{141}==>%f $*"; }
@@ -50,7 +54,7 @@ warn() { print -P -- "%F{214}  !%f $*"; }
 err()  { print -u2 -P -- "%F{196}  ✗%f $*"; }
 
 usage() {
-  sed -n '3,29p' "$SCRIPT_PATH" | sed -E 's/^# ?//'
+  sed -n '3,32p' "$SCRIPT_PATH" | sed -E 's/^# ?//'
 }
 
 # ─── ew update ───────────────────────────────────────────────────────────────
@@ -299,6 +303,36 @@ predict_toggle() {
   fi
 }
 
+# Live autocomplete is OPT-IN: the flag file's PRESENCE means on. When off (no
+# flag), the .zshrc block never sources the plugin — so off is genuinely free.
+autocomplete_status() {
+  [[ -f "$AUTOCOMPLETE_ON_FLAG" ]] && print -- "on" || print -- "off"
+}
+
+autocomplete_on() {
+  mkdir -p "$CFG_DIR"
+  touch "$AUTOCOMPLETE_ON_FLAG"
+  ok "autocomplete: on — live narrowing list under the prompt"
+  info "this replaces the Tab-triggered fzf menu; it's heavier per keystroke"
+  info "if it ever feels laggy: ew autocomplete off"
+  info "takes effect in a new shell (or: exec zsh)"
+}
+
+autocomplete_off() {
+  /bin/rm -f "$AUTOCOMPLETE_ON_FLAG"
+  ok "autocomplete: off — back to the fast Tab-triggered fzf menu"
+  info "the live-list plugin is no longer loaded (zero per-keystroke cost)"
+  info "takes effect in a new shell (or: exec zsh)"
+}
+
+autocomplete_toggle() {
+  if [[ -f "$AUTOCOMPLETE_ON_FLAG" ]]; then
+    autocomplete_off
+  else
+    autocomplete_on
+  fi
+}
+
 banner_status() {
   [[ -f "$BANNER_OFF_FLAG" ]] && print -- "off" || print -- "on"
 }
@@ -361,6 +395,11 @@ show_status() {
   else
     print -P -- "  predict  %F{114}on%f       history + completions (ew predict-off)"
   fi
+  if [[ -f "$AUTOCOMPLETE_ON_FLAG" ]]; then
+    print -P -- "  menu     %F{114}live%f     narrowing list as you type (ew autocomplete off)"
+  else
+    print -P -- "  menu     %F{245}tab%f      fzf menu on Tab (ew autocomplete on for live list)"
+  fi
   local g_op=60 g_blur=70
   [[ -r "$CFG_DIR/glass" ]] && read -r g_op g_blur < "$CFG_DIR/glass"
   if (( g_op >= 100 )); then
@@ -369,7 +408,7 @@ show_status() {
     print -P -- "  glass    %F{114}on%f       ${g_op}%% · blur ${g_blur}%%  (ew glass off to disable)"
   fi
   print -- ""
-  print -P -- "  %F{245}commands: theme · glass · predict-on/off · completions · colors-on/off · welcome · doctor · uninstall%f"
+  print -P -- "  %F{245}commands: theme · glass · predict-on/off · autocomplete · completions · colors-on/off · doctor · uninstall%f"
   print -- ""
 }
 
@@ -394,6 +433,15 @@ case "$cmd" in
   predict-off|predict_off)       predict_off ;;
   predict-toggle|predict_toggle) predict_toggle ;;
   predict-status|predict_status) predict_status ;;
+  autocomplete)
+    case "${1:-toggle}" in
+      on)     autocomplete_on ;;
+      off)    autocomplete_off ;;
+      toggle) autocomplete_toggle ;;
+      status) autocomplete_status ;;
+      *) err "usage: ew autocomplete on|off|toggle|status"; exit 2 ;;
+    esac
+    ;;
   completions|complete)        exec "$PKG_ROOT/bin/ew-completions" "$@" ;;
   status)                      show_status ;;
   welcome)                     exec "$PKG_ROOT/bin/ew-welcome" "$@" ;;
