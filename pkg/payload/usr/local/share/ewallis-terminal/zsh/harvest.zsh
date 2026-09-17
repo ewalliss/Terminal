@@ -28,6 +28,15 @@ _ew_harvest_dir()  { print -r -- "$(_ew_harvest_cfg)/harvest"; }
 # Tools that must never be probed with a `completion` subcommand: interactive
 # programs, REPLs, network/DB clients, or anything that could block or misread
 # the argument. A misparse or unsupported tool just lands in the negative cache.
+#
+# The last group is the subtle one: they neither block nor error, so nothing
+# here catches them. A GUI editor takes every positional argument as a path to
+# open, so `zed completion zsh` hands it two of them and the editor pops up
+# phantom `completion` and `zsh` tabs (older Zed also touched them onto disk).
+# Since the probe is spawned from preexec, this lands in the same window the
+# user just opened with `zed .`, which is what makes it look like the editor's
+# own doing. And it repeats: the cache is keyed on binary mtime and these
+# editors auto-update, so every update re-arms the probe.
 typeset -ga _EW_HARVEST_DENY=(
   vi vim nvim nano emacs pico ed
   ssh scp sftp telnet ftp nc ncat netcat socat
@@ -35,6 +44,8 @@ typeset -ga _EW_HARVEST_DENY=(
   mysql psql sqlite3 redis-cli mongo mongosh
   top htop less more man tmux screen
   sudo doas su login
+  code codium cursor zed subl mate atom
+  idea webstorm pycharm goland clion rubymine phpstorm rider rustrover
 )
 
 _ew_harvest_denied() {
@@ -65,13 +76,28 @@ _ew_harvest_base() {
 
 # ── The probe — hard 5s timeout without GNU timeout(1) (macOS lacks it) ──────
 # perl's alarm timer survives exec, so exec-ing the tool keeps the watchdog.
+#
+# The probe runs from a throwaway cwd, not $PWD. The deny list above can only
+# name tools we already know misbehave; a tool that writes relative paths when
+# it misparses `completion zsh` would otherwise litter whatever directory the
+# user happened to be in. Here the mess lands in a temp dir we delete.
 _ew_harvest_probe() {
   local bin=$1; shift
-  if (( $+commands[perl] )); then
-    perl -e 'alarm(shift); exec @ARGV or exit 127' 5 "$bin" "$@" </dev/null 2>/dev/null
-  else
-    "$bin" "$@" </dev/null 2>/dev/null
-  fi
+  local tmpbase=${${TMPDIR:-/tmp}%/} scratch
+  scratch=$(mktemp -d "$tmpbase/ew-harvest.XXXXXX" 2>/dev/null) || scratch=
+  (
+    [[ -n $scratch ]] && cd -q -- "$scratch" 2>/dev/null
+    if (( $+commands[perl] )); then
+      perl -e 'alarm(shift); exec @ARGV or exit 127' 5 "$bin" "$@" </dev/null 2>/dev/null
+    else
+      "$bin" "$@" </dev/null 2>/dev/null
+    fi
+  )
+  local rc=$?
+  # Belt-and-braces on the rm: only ever a path mktemp just handed us.
+  [[ -n $scratch && $scratch == $tmpbase/ew-harvest.* && -d $scratch ]] \
+    && rm -rf -- "$scratch" 2>/dev/null
+  return $rc
 }
 
 # ── Validation — must be an autoloadable #compdef script, non-trivial, sane ──
