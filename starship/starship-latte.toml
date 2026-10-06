@@ -89,15 +89,15 @@ style    = "bg:mauve fg:base"
 format   = '[$symbol]($style)'
 
 [os.symbols]
-Macos   = "  "   # nf-md-apple
-Linux   = "  "   # nf-md-linux
-Windows = "  "   # nf-md-microsoft_windows
-Ubuntu  = "  "   # nf-md-ubuntu
-Debian  = "  "   # nf-md-debian
-Arch    = "  "   # nf-md-arch
-Fedora  = "  "   # nf-md-fedora
-Alpine  = "  "   # nf-md-alpine
-Android = "  "   # nf-md-android
+Macos   = "  "   # nf-fa-apple
+Linux   = "  "   # nf-fa-linux
+Windows = "  "   # nf-fa-windows
+Ubuntu  = "  "   # nf-linux-ubuntu
+Debian  = "  "   # nf-linux-debian
+Arch    = "  "   # nf-linux-archlinux
+Fedora  = "  "   # nf-linux-fedora
+Alpine  = "  "   # nf-linux-alpine
+Android = "  "   # nf-fa-android
 
 # ── Username ───────────────────────────────────────────────────────────────────
 [username]
@@ -109,44 +109,44 @@ format      = '[ $user ]($style)'
 # ── Directory ──────────────────────────────────────────────────────────────────
 [directory]
 style             = "fg:base bg:pink"
-format            = '[ 󰉋 $path ]($style)'   # nf-md-folder
-read_only         = " 󰌾"                     # nf-md-lock
+format            = '[  $path ]($style)'   # nf-fa-folder
+read_only         = " "                     # nf-fa-lock
 truncation_length = 3
 truncation_symbol = "…/"
 
 [directory.substitutions]
 "~"         = "~"
-"Documents" = "󰈙 Documents"
-"Downloads" = "󰇚 Downloads"
-"Music"     = "󰝚 Music"
-"Pictures"  = "󰋩 Pictures"
-"Desktop"   = "󰇄 Desktop"
-"Projects"  = "󰏗 Projects"
-"Developer" = "󰏗 Developer"
+"Documents" = " Documents"
+"Downloads" = " Downloads"
+"Music"     = " Music"
+"Pictures"  = " Pictures"
+"Desktop"   = " Desktop"
+"Projects"  = " Projects"
+"Developer" = " Developer"
 
 # ── Git ────────────────────────────────────────────────────────────────────────
 [git_branch]
-symbol = "󰘬 "    # nf-md-source_branch
+symbol = " "    # nf-dev-git_branch
 style  = "bg:blue fg:base"
 format = '[[ $symbol$branch ](fg:base bg:blue)]($style)'
 
 [git_status]
 style       = "bg:blue fg:base"
 format      = '[[($all_status$ahead_behind )](fg:base bg:blue)]($style)'
-modified    = "󰏭 "
-staged      = "󰐕 "
-untracked   = "󰋗 "
-deleted     = "󰍶 "
-renamed     = "󰁔 "
-conflicted  = "󰀨 "
-ahead       = "󰜷"
-behind      = "󰜮"
-diverged    = "󰹹 "
-stashed     = "󰏗 "
+modified    = " "
+staged      = " "
+untracked   = " "
+deleted     = " "
+renamed     = " "
+conflicted  = " "
+ahead       = ""
+behind      = ""
+diverged    = " "
+stashed     = " "
 
 # ── Python ─────────────────────────────────────────────────────────────────────
 [python]
-symbol            = "󰌠 "
+symbol            = " "
 style             = "bg:green fg:base"
 format            = '[[ $symbol$version(\($virtualenv\)) ](fg:base bg:green)]($style)'
 detect_extensions = ["py"]
@@ -154,68 +154,68 @@ detect_files      = [".python-version", "Pipfile", "pyproject.toml", "setup.py",
 
 # ── Node.js ────────────────────────────────────────────────────────────────────
 [nodejs]
-symbol       = "󰎙 "
+symbol       = " "
 style        = "bg:teal fg:base"
 format       = '[[ $symbol$version ](fg:base bg:teal)]($style)'
 detect_files = ["package.json", ".nvmrc", ".node-version"]
 
 # ── Rust ───────────────────────────────────────────────────────────────────────
 [rust]
-symbol = "󱘗 "
+symbol = " "
 style  = "bg:surface0 fg:peach"
 format = '[[ $symbol$version ](fg:peach bg:surface0)]($style)'
 
 # ── Go ─────────────────────────────────────────────────────────────────────────
 [golang]
-symbol = "󰟓 "
+symbol = " "
 style  = "bg:surface0 fg:sky"
 format = '[[ $symbol$version ](fg:sky bg:surface0)]($style)'
 
 # ── Java ───────────────────────────────────────────────────────────────────────
 [java]
-symbol = "󰬷 "
+symbol = " "
 style  = "bg:surface0 fg:yellow"
 format = '[[ $symbol$version ](fg:yellow bg:surface0)]($style)'
 
 # ── Ruby ───────────────────────────────────────────────────────────────────────
 [ruby]
-symbol = "󰴭 "
+symbol = " "
 style  = "bg:surface0 fg:red"
 format = '[[ $symbol$version ](fg:red bg:surface0)]($style)'
 
 # ── PHP ────────────────────────────────────────────────────────────────────────
 [php]
-symbol = "󰌟 "
+symbol = " "
 style  = "bg:surface0 fg:mauve"
 format = '[[ $symbol$version ](fg:mauve bg:surface0)]($style)'
 
 # ── C / C++ ────────────────────────────────────────────────────────────────────
 [c]
-symbol = "󰙱 "
+symbol = " "
 style  = "bg:surface0 fg:sapphire"
 format = '[[ $symbol$version ](fg:sapphire bg:surface0)]($style)'
 
 # ── Swift ──────────────────────────────────────────────────────────────────────
 [swift]
-symbol = "󰛥 "
+symbol = " "
 style  = "bg:surface0 fg:peach"
 format = '[[ $symbol$version ](fg:peach bg:surface0)]($style)'
 
 # ── Kotlin ─────────────────────────────────────────────────────────────────────
 [kotlin]
-symbol = "󱈙 "
+symbol = " "
 style  = "bg:surface0 fg:mauve"
 format = '[[ $symbol$version ](fg:mauve bg:surface0)]($style)'
 
 # ── Lua ────────────────────────────────────────────────────────────────────────
 [lua]
-symbol = "󰢱 "
+symbol = " "
 style  = "bg:surface0 fg:blue"
 format = '[[ $symbol$version ](fg:blue bg:surface0)]($style)'
 
 # ── R ──────────────────────────────────────────────────────────────────────────
 [rlang]
-symbol = "󰟔 "
+symbol = " "
 style  = "bg:surface0 fg:blue"
 format = '[[ $symbol$version ](fg:blue bg:surface0)]($style)'
 
@@ -251,13 +251,13 @@ format = '[[ $symbol$version ](fg:blue bg:surface0)]($style)'
 
 # ── Haskell ────────────────────────────────────────────────────────────────────
 [haskell]
-symbol = "󰲒 "
+symbol = " "
 style  = "bg:surface0 fg:mauve"
 format = '[[ $symbol$version ](fg:mauve bg:surface0)]($style)'
 
 # ── Nim ────────────────────────────────────────────────────────────────────────
 [nim]
-symbol = "󰆥 "
+symbol = " "
 style  = "bg:surface0 fg:yellow"
 format = '[[ $symbol$version ](fg:yellow bg:surface0)]($style)'
 
@@ -269,51 +269,51 @@ format = '[[ $symbol$version ](fg:peach bg:surface0)]($style)'
 
 # ── Docker ─────────────────────────────────────────────────────────────────────
 [docker_context]
-symbol = "󰡨 "
+symbol = " "
 style  = "bg:surface0 fg:blue"
 format = '[[ $symbol$context ](fg:blue bg:surface0)]($style)'
 
 # ── Kubernetes ─────────────────────────────────────────────────────────────────
 [kubernetes]
 disabled = false
-symbol   = "󱃾 "
+symbol   = " "
 style    = "bg:surface0 fg:blue"
 format   = '[[ $symbol$context(\[$namespace\]) ](fg:blue bg:surface0)]($style)'
 
 # ── AWS ────────────────────────────────────────────────────────────────────────
 [aws]
-symbol = "󰸏 "
+symbol = " "
 style  = "bg:surface0 fg:peach"
 format = '[[ $symbol$profile(\[$region\]) ](fg:peach bg:surface0)]($style)'
 
 # ── Google Cloud ───────────────────────────────────────────────────────────────
 [gcloud]
-symbol = "󱇶 "
+symbol = " "
 style  = "bg:surface0 fg:blue"
 format = '[[ $symbol$account(@$domain)(\[$region\]) ](fg:blue bg:surface0)]($style)'
 
 # ── Azure ──────────────────────────────────────────────────────────────────────
 [azure]
 disabled = false
-symbol   = "󰠅 "
+symbol   = " "
 style    = "bg:surface0 fg:blue"
 format   = '[[ $symbol$subscription ](fg:blue bg:surface0)]($style)'
 
 # ── Terraform ──────────────────────────────────────────────────────────────────
 [terraform]
-symbol = "󱁢 "
+symbol = " "
 style  = "bg:surface0 fg:mauve"
 format = '[[ $symbol$workspace ](fg:mauve bg:surface0)]($style)'
 
 # ── Conda ──────────────────────────────────────────────────────────────────────
 [conda]
-symbol = "󰏗 "
+symbol = " "
 style  = "bg:surface0 fg:green"
 format = '[[ $symbol$environment ](fg:green bg:surface0)]($style)'
 
 # ── Package version ────────────────────────────────────────────────────────────
 [package]
-symbol   = "󰏗 "
+symbol   = " "
 style    = "bg:surface0 fg:peach"
 format   = '[[ $symbol$version ](fg:peach bg:surface0)]($style)'
 disabled = false
@@ -323,13 +323,13 @@ disabled = false
 [cmd_duration]
 min_time = 500
 style    = "fg:yellow"
-format   = '[󱎫 $duration ]($style)'
+format   = '[ $duration ]($style)'
 
 [time]
 disabled    = false
 time_format = "%H:%M"
 style       = "fg:subtext1"
-format      = '[󰥔 $time ]($style)'
+format      = '[ $time ]($style)'
 
 # ── Prompt character ───────────────────────────────────────────────────────────
 [character]

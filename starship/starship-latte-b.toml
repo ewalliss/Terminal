@@ -82,15 +82,15 @@ style    = "fg:mauve"
 format   = '[$symbol]($style)'
 
 [os.symbols]
-Macos   = "  "
-Linux   = "  "
-Windows = "  "
-Ubuntu  = "  "
-Debian  = "  "
-Arch    = "  "
-Fedora  = "  "
-Alpine  = "  "
-Android = "  "
+Macos   = "  "   # nf-fa-apple
+Linux   = "  "   # nf-fa-linux
+Windows = "  "   # nf-fa-windows
+Ubuntu  = "  "   # nf-linux-ubuntu
+Debian  = "  "   # nf-linux-debian
+Arch    = "  "   # nf-linux-archlinux
+Fedora  = "  "   # nf-linux-fedora
+Alpine  = "  "   # nf-linux-alpine
+Android = "  "   # nf-fa-android
 
 # ── Username ───────────────────────────────────────────────────────────────────
 [username]
@@ -102,44 +102,44 @@ format      = '[ $user ]($style)'
 # ── Directory ──────────────────────────────────────────────────────────────────
 [directory]
 style             = "fg:pink"
-format            = '[ 󰉋 $path ]($style)'
-read_only         = " 󰌾"
+format            = '[  $path ]($style)'
+read_only         = " "
 truncation_length = 3
 truncation_symbol = "…/"
 
 [directory.substitutions]
 "~"         = "~"
-"Documents" = "󰈙 Documents"
-"Downloads" = "󰇚 Downloads"
-"Music"     = "󰝚 Music"
-"Pictures"  = "󰋩 Pictures"
-"Desktop"   = "󰇄 Desktop"
-"Projects"  = "󰏗 Projects"
-"Developer" = "󰏗 Developer"
+"Documents" = " Documents"
+"Downloads" = " Downloads"
+"Music"     = " Music"
+"Pictures"  = " Pictures"
+"Desktop"   = " Desktop"
+"Projects"  = " Projects"
+"Developer" = " Developer"
 
 # ── Git ────────────────────────────────────────────────────────────────────────
 [git_branch]
-symbol = "󰘬 "
+symbol = " "
 style  = "fg:blue"
 format = '[[ $symbol$branch ](fg:blue)]($style)'
 
 [git_status]
 style       = "fg:blue"
 format      = '[[($all_status$ahead_behind )](fg:blue)]($style)'
-modified    = "󰏭 "
-staged      = "󰐕 "
-untracked   = "󰋗 "
-deleted     = "󰍶 "
-renamed     = "󰁔 "
-conflicted  = "󰀨 "
-ahead       = "󰜷"
-behind      = "󰜮"
-diverged    = "󰹹 "
-stashed     = "󰏗 "
+modified    = " "
+staged      = " "
+untracked   = " "
+deleted     = " "
+renamed     = " "
+conflicted  = " "
+ahead       = ""
+behind      = ""
+diverged    = " "
+stashed     = " "
 
 # ── Python ─────────────────────────────────────────────────────────────────────
 [python]
-symbol            = "󰌠 "
+symbol            = " "
 style             = "fg:green"
 format            = '[[ $symbol$version(\($virtualenv\)) ](fg:green)]($style)'
 detect_extensions = ["py"]
@@ -147,68 +147,68 @@ detect_files      = [".python-version", "Pipfile", "pyproject.toml", "setup.py",
 
 # ── Node.js ────────────────────────────────────────────────────────────────────
 [nodejs]
-symbol       = "󰎙 "
+symbol       = " "
 style        = "fg:teal"
 format       = '[[ $symbol$version ](fg:teal)]($style)'
 detect_files = ["package.json", ".nvmrc", ".node-version"]
 
 # ── Rust ───────────────────────────────────────────────────────────────────────
 [rust]
-symbol = "󱘗 "
+symbol = " "
 style  = "fg:peach"
 format = '[[ $symbol$version ](fg:peach)]($style)'
 
 # ── Go ─────────────────────────────────────────────────────────────────────────
 [golang]
-symbol = "󰟓 "
+symbol = " "
 style  = "fg:sky"
 format = '[[ $symbol$version ](fg:sky)]($style)'
 
 # ── Java ───────────────────────────────────────────────────────────────────────
 [java]
-symbol = "󰬷 "
+symbol = " "
 style  = "fg:yellow"
 format = '[[ $symbol$version ](fg:yellow)]($style)'
 
 # ── Ruby ───────────────────────────────────────────────────────────────────────
 [ruby]
-symbol = "󰴭 "
+symbol = " "
 style  = "fg:red"
 format = '[[ $symbol$version ](fg:red)]($style)'
 
 # ── PHP ────────────────────────────────────────────────────────────────────────
 [php]
-symbol = "󰌟 "
+symbol = " "
 style  = "fg:mauve"
 format = '[[ $symbol$version ](fg:mauve)]($style)'
 
 # ── C / C++ ────────────────────────────────────────────────────────────────────
 [c]
-symbol = "󰙱 "
+symbol = " "
 style  = "fg:sapphire"
 format = '[[ $symbol$version ](fg:sapphire)]($style)'
 
 # ── Swift ──────────────────────────────────────────────────────────────────────
 [swift]
-symbol = "󰛥 "
+symbol = " "
 style  = "fg:peach"
 format = '[[ $symbol$version ](fg:peach)]($style)'
 
 # ── Kotlin ─────────────────────────────────────────────────────────────────────
 [kotlin]
-symbol = "󱈙 "
+symbol = " "
 style  = "fg:mauve"
 format = '[[ $symbol$version ](fg:mauve)]($style)'
 
 # ── Lua ────────────────────────────────────────────────────────────────────────
 [lua]
-symbol = "󰢱 "
+symbol = " "
 style  = "fg:blue"
 format = '[[ $symbol$version ](fg:blue)]($style)'
 
 # ── R ──────────────────────────────────────────────────────────────────────────
 [rlang]
-symbol = "󰟔 "
+symbol = " "
 style  = "fg:blue"
 format = '[[ $symbol$version ](fg:blue)]($style)'
 
@@ -244,13 +244,13 @@ format = '[[ $symbol$version ](fg:blue)]($style)'
 
 # ── Haskell ────────────────────────────────────────────────────────────────────
 [haskell]
-symbol = "󰲒 "
+symbol = " "
 style  = "fg:mauve"
 format = '[[ $symbol$version ](fg:mauve)]($style)'
 
 # ── Nim ────────────────────────────────────────────────────────────────────────
 [nim]
-symbol = "󰆥 "
+symbol = " "
 style  = "fg:yellow"
 format = '[[ $symbol$version ](fg:yellow)]($style)'
 
@@ -262,51 +262,51 @@ format = '[[ $symbol$version ](fg:peach)]($style)'
 
 # ── Docker ─────────────────────────────────────────────────────────────────────
 [docker_context]
-symbol = "󰡨 "
+symbol = " "
 style  = "fg:blue"
 format = '[[ $symbol$context ](fg:blue)]($style)'
 
 # ── Kubernetes ─────────────────────────────────────────────────────────────────
 [kubernetes]
 disabled = false
-symbol   = "󱃾 "
+symbol   = " "
 style    = "fg:blue"
 format   = '[[ $symbol$context(\[$namespace\]) ](fg:blue)]($style)'
 
 # ── AWS ────────────────────────────────────────────────────────────────────────
 [aws]
-symbol = "󰸏 "
+symbol = " "
 style  = "fg:peach"
 format = '[[ $symbol$profile(\[$region\]) ](fg:peach)]($style)'
 
 # ── Google Cloud ───────────────────────────────────────────────────────────────
 [gcloud]
-symbol = "󱇶 "
+symbol = " "
 style  = "fg:blue"
 format = '[[ $symbol$account(@$domain)(\[$region\]) ](fg:blue)]($style)'
 
 # ── Azure ──────────────────────────────────────────────────────────────────────
 [azure]
 disabled = false
-symbol   = "󰠅 "
+symbol   = " "
 style    = "fg:blue"
 format   = '[[ $symbol$subscription ](fg:blue)]($style)'
 
 # ── Terraform ──────────────────────────────────────────────────────────────────
 [terraform]
-symbol = "󱁢 "
+symbol = " "
 style  = "fg:mauve"
 format = '[[ $symbol$workspace ](fg:mauve)]($style)'
 
 # ── Conda ──────────────────────────────────────────────────────────────────────
 [conda]
-symbol = "󰏗 "
+symbol = " "
 style  = "fg:green"
 format = '[[ $symbol$environment ](fg:green)]($style)'
 
 # ── Package version ────────────────────────────────────────────────────────────
 [package]
-symbol   = "󰏗 "
+symbol   = " "
 style    = "fg:peach"
 format   = '[[ $symbol$version ](fg:peach)]($style)'
 disabled = false
@@ -316,13 +316,13 @@ disabled = false
 [cmd_duration]
 min_time = 500
 style    = "fg:yellow"
-format   = '[󱎫 $duration ]($style)'
+format   = '[ $duration ]($style)'
 
 [time]
 disabled    = false
 time_format = "%H:%M"
 style       = "fg:subtext1"
-format      = '[󰥔 $time ]($style)'
+format      = '[ $time ]($style)'
 
 # ── Prompt character ───────────────────────────────────────────────────────────
 [character]
