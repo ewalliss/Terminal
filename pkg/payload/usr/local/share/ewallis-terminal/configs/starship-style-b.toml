@@ -1,6 +1,6 @@
 # Catppuccin Mocha – Starship prompt (Style B: Text-only, no background)
 # Requires: JetBrainsMono Nerd Font
-# All icons: Nerd Fonts Material Design (nf-md-*) set
+# All icons: BMP-only Nerd Font glyphs (nf-fa-*, nf-dev-*, nf-seti-*)
 
 "$schema" = 'https://starship.rs/config-schema.json'
 
@@ -9,7 +9,8 @@ command_timeout = 2000
 # ── Segment order ──────────────────────────────────────────────────────────────
 # mauve: os · user   pink:  dir   blue: branch · status
 # green: python   teal: node   peach/sky/yellow/…: rest
-# right_format renders independently — works at any terminal width
+# $fill pushes duration + clock to the right edge of line 1 (the info line),
+# so nothing sits on the line you type on
 format = """
 $os\
 $username\
@@ -44,10 +45,11 @@ $azure\
 $terraform\
 $conda\
 $package\
+$fill\
+$cmd_duration\
+$time\
 $line_break\
 $character"""
-
-right_format = "$cmd_duration$time"
 
 palette = 'catppuccin_mocha'
 
@@ -396,6 +398,9 @@ format   = '[[ $symbol$version ](fg:peach)]($style)'
 disabled = false
 
 # ── Right side ─────────────────────────────────────────────────────────────────
+
+[fill]
+symbol = ' '
 
 [cmd_duration]
 min_time = 500

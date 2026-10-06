@@ -1,6 +1,6 @@
 # Catppuccin Latte – Starship prompt (Style A: Powerline)
 # Requires: JetBrainsMono Nerd Font
-# All icons: Nerd Fonts Material Design (nf-md-*) set
+# All icons: BMP-only Nerd Font glyphs (nf-fa-*, nf-dev-*, nf-seti-*)
 
 "$schema" = 'https://starship.rs/config-schema.json'
 
@@ -47,10 +47,11 @@ $terraform\
 $conda\
 $package\
 [](fg:surface0)\
+$fill\
+$cmd_duration\
+$time\
 $line_break\
 $character"""
-
-right_format = "$cmd_duration$time"
 
 palette = 'catppuccin_latte'
 
@@ -319,6 +320,9 @@ format   = '[[ $symbol$version ](fg:peach bg:surface0)]($style)'
 disabled = false
 
 # ── Right side ─────────────────────────────────────────────────────────────────
+
+[fill]
+symbol = ' '
 
 [cmd_duration]
 min_time = 500
