@@ -253,16 +253,25 @@ PY
   fi
 fi
 
-# ─── 3. Deploy theme switcher + doctor + legacy toggle ───────────────────────
+# ─── 3. `ew` in ~/.local/bin ─────────────────────────────────────────────────
+# ~/.local/bin usually precedes /usr/local/bin in PATH, so whatever sits here
+# is the `ew` that actually runs. It used to be a copy, which went stale on
+# every account that did not re-run setup after an update. A symlink into the
+# package always resolves to the installed version.
 say "Installing CLI tools"
-for tool in ew ewallis-theme ewallis-terminal-doctor ewallis-welcome toggle-starship-theme; do
-  SRC="$PKG_ROOT/bin/$tool"
-  if [[ -f "$SRC" ]]; then
-    deploy_file "$SRC" "$HOME/.local/bin/$tool"
-    chmod +x "$HOME/.local/bin/$tool"
-    ok "$tool → ~/.local/bin/$tool"
-  fi
-done
+EW_LINK="$HOME/.local/bin/ew"
+mkdir -p "${EW_LINK:h}"
+if [[ -e "$EW_LINK" && ! -L "$EW_LINK" ]] && ! grep -q 'ewallis-terminal' "$EW_LINK" 2>/dev/null; then
+  # Not ours — someone else's `ew`. Keep a backup so uninstall restores it.
+  bak="$BACKUP_DIR/.local/bin/ew"
+  mkdir -p "${bak:h}"
+  cp -p "$EW_LINK" "$bak"
+  manifest_record "backup" "$EW_LINK" "$bak"
+fi
+/bin/ln -sfn "$PKG_ROOT/bin/ew" "$EW_LINK.tmp.$$"
+mv -f "$EW_LINK.tmp.$$" "$EW_LINK"
+manifest_record "deployed" "$EW_LINK"
+ok "ew → ~/.local/bin/ew (symlink to $PKG_ROOT/bin/ew)"
 
 # ─── 3b. Deploy plugin theme for the chosen palette ─────────────────────────
 say "Installing plugin theme (catppuccin_$VARIANT)"
