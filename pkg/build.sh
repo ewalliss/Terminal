@@ -11,7 +11,7 @@ set -euo pipefail
 IFS=$'\n\t'
 export LANG="${LANG:-en_US.UTF-8}"
 
-PKG_VERSION="3.0.1"  # v3.0.1 — opt-in live autocomplete (zsh-autocomplete)
+PKG_VERSION="3.0.2"  # v3.0.2 — bundled Nerd Font, multi-account fixes
 PKG_ID="com.ewalliss.ewallis-terminal"
 PKG_NAME="EwallisTerminal"
 INSTALL_LOCATION="/"
@@ -103,6 +103,35 @@ vendor_plugin zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-hi
 vendor_plugin zsh-completions         https://github.com/zsh-users/zsh-completions         0.36.0
 vendor_plugin fzf-tab                  https://github.com/Aloxaf/fzf-tab                    v1.3.0
 vendor_plugin zsh-autocomplete        https://github.com/marlonrichert/zsh-autocomplete    25.03.19
+
+# Vendor the icon font (pinned release; only the 4 Mono faces the profiles use).
+# postinstall copies these to /Library/Fonts so every account on the Mac gets
+# icons without Homebrew — a cask font lands in one user's ~/Library/Fonts only.
+NERD_FONT_REF="v3.5.1"
+FONT_DIR="$PKG_SHARE/fonts"
+typeset -a FONT_FACES=(Regular Bold Italic BoldItalic)
+if [[ -f "$FONT_DIR/.ewallis-version" && "$(cat "$FONT_DIR/.ewallis-version")" == "$NERD_FONT_REF" ]]; then
+  ok "fonts/  (cached @ $NERD_FONT_REF)"
+else
+  mkdir -p "$FONT_DIR"
+  font_tmp="$(mktemp -d "${TMPDIR:-/tmp}/ewallis-font.XXXXXX")"
+  /usr/bin/curl -fsSL -o "$font_tmp/font.tar.xz" \
+    "https://github.com/ryanoasis/nerd-fonts/releases/download/$NERD_FONT_REF/JetBrainsMono.tar.xz" || {
+    err "font download failed @ $NERD_FONT_REF"; exit 1
+  }
+  /usr/bin/tar -xJf "$font_tmp/font.tar.xz" -C "$font_tmp"
+  for face in "${FONT_FACES[@]}"; do
+    cp "$font_tmp/JetBrainsMonoNerdFontMono-$face.ttf" "$FONT_DIR/" || {
+      err "font face missing in archive: $face"; exit 1
+    }
+  done
+  [[ -f "$font_tmp/OFL.txt" ]] && cp "$font_tmp/OFL.txt" "$FONT_DIR/OFL.txt"
+  print -- "$NERD_FONT_REF" > "$FONT_DIR/.ewallis-version"
+  ok "fonts/  JetBrainsMono Nerd Font Mono @ $NERD_FONT_REF"
+fi
+for face in "${FONT_FACES[@]}"; do
+  [[ -s "$FONT_DIR/JetBrainsMonoNerdFontMono-$face.ttf" ]] || { err "missing font face: $face"; exit 1; }
+done
 
 # Validate dynamic-profile JSON before shipping (python3 ships with CLT)
 for json in "$PKG_SHARE"/iterm2/*.json; do
@@ -213,4 +242,4 @@ ok "Built: $OUT"
 print -P -- "  sha256:   %F{245}$(cat "$OUT.sha256")%f"
 print -P -- "  Install:  %F{141}sudo /usr/sbin/installer -pkg \"$OUT\" -target /%f"
 print -P -- "  Or:       %F{141}open \"$OUT\"%f  (uses Installer.app GUI)"
-print -P -- "  Uninstall:%F{141}ewallis-terminal-uninstall --system%f"
+print -P -- "  Uninstall:%F{141}ew uninstall --system%f"

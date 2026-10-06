@@ -1,6 +1,6 @@
 # EwallisTerminal
 
-A polished, opinionated terminal setup for macOS — Catppuccin colors, Starship prompt with Material Design icons, zsh productivity plugins, and a single `ew` CLI to control everything.
+A polished, opinionated terminal setup for macOS — Catppuccin colors, Starship prompt with Nerd Font icons, zsh productivity plugins, and a single `ew` CLI to control everything.
 
 Two ways to use it:
 
@@ -43,29 +43,58 @@ A Terminal profile only carries *looks* — the Starship prompt, banner, and zsh
 - **4 Catppuccin palettes** — Latte (light), Frappé (dark/low), Macchiato (dark/mid), Mocha (dark/high)
 - **Welcome banner** — Catppuccin-themed startup splash inspired by Claude Code v2 (toggle with `ew banner-on/off`)
 - **ESC×2 session history picker** — when prompt is empty, double-ESC opens an fzf-powered picker of commands typed in this terminal tab; when prompt has text, double-ESC clears it
-- **Ctrl+F path picker** — fzf browser for the path under your cursor (or the current directory on an empty line); explicit keybinding only, never auto-triggers while you type
+- **Ctrl+F path picker** — fzf browser for the path under your cursor (or the current directory on an empty line); explicit keybinding only, never auto-triggers while you type. Icons: 3 generic glyphs by default, or opt into a Catppuccin-colored per-file-type set with `ew icons catppuccin`
 - **Fish-style completion prediction** — ghost text suggests a tool's subcommands/flags from zsh's completion system (`git ch`→`git checkout`), not just your history. An auto-detect harvester generates completions for tools that don't ship them (`gh`, `docker`, `kubectl`) on first use, cached and kept fresh by binary mtime. Toggle with `ew predict-on/off`; manage with `ew completions`.
 - **fzf-tab Tab menu** — Tab opens a palette-themed fzf picker showing completions with descriptions; falls back to zsh's native menu when fzf is absent
 - **Zsh productivity stack** — vendored `zsh-autosuggestions` + `zsh-syntax-highlighting` + `zsh-completions` + `fzf-tab` (offline-safe, palette-themed)
 - **Self-service updates** — `ew update` pulls latest from GitHub Releases, SHA256-verifies, installs
 - **Atomic, reversible** — every change is backed up; `ew uninstall` restores your prior state byte-for-byte
 - **Pre-flight checks** — `ew doctor` detects + offers to brew-install missing deps (starship, fzf, JetBrains Mono Nerd Font)
+- **Multi-account aware** — system files install once; each macOS account runs `ew setup` and keeps its own palette, state and backups
 - **`ew doctor --self-test`** — 11-step sandboxed install → theme → uninstall cycle for regression catching
 
 ---
 
 ## Install (full experience)
 
-One-line install (downloads + verifies + runs Apple's installer):
+One command installs everything — files, icon font, prompt, plugins, Terminal.app profile:
 
 ```sh
-curl -fLO https://github.com/ewalliss/Terminal/releases/latest/download/EwallisTerminal-3.0.1.pkg
-sudo installer -pkg EwallisTerminal-3.0.1.pkg -target /
+curl -fLO https://github.com/ewalliss/Terminal/releases/latest/download/EwallisTerminal-3.0.2.pkg \
+  && sudo installer -pkg EwallisTerminal-3.0.2.pkg -target /
 ```
 
 Or download the `.pkg` from the [latest release](https://github.com/ewalliss/Terminal/releases/latest) and double-click.
 
-After install, open a **new** terminal tab — the welcome banner appears, and `ew` is on PATH.
+Then open a **new** terminal tab. You should see the welcome banner and a prompt with icons, not boxes. `ew doctor --check-only` confirms it: it must end with "All dependencies satisfied."
+
+What that one command does:
+
+| Step | What | For whom |
+|---|---|---|
+| 1 | Copies the package to `/usr/local/share/ewallis-terminal/` and links `/usr/local/bin/ew` | the whole Mac |
+| 2 | Installs the bundled JetBrainsMono Nerd Font into `/Library/Fonts` (skipped if already there) | every account |
+| 3 | Runs per-user setup: shell block, Starship config, Terminal.app + iTerm2 profile | the account that is logged in |
+| 4 | If `starship` or `fzf` is missing, installs them with Homebrew | the logged-in account, only if it owns Homebrew |
+
+The only thing the installer cannot do for you is install Homebrew itself. If `starship` and `fzf` are missing and there is no Homebrew, install it from [brew.sh](https://brew.sh) and run `ew doctor`.
+
+### Additional macOS accounts
+
+Steps 1 and 2 cover the whole Mac. Step 3 is per account, so every other account runs one command — no `sudo`, and it changes nothing in any other account or in Homebrew:
+
+```sh
+ew setup
+```
+
+Open a new terminal tab. The account now has its own palette, banner setting and completion cache under its own home directory; `ew theme`, `ew banner-off` and friends affect that account only. The managed shell block also puts Homebrew on PATH when the account has no `brew shellenv` line, so tools installed by the owner are found without editing `~/.zprofile`.
+
+**Rules for a shared Mac** — these keep one account from breaking another:
+
+- **Homebrew has exactly one owner.** Run `brew install` and `brew upgrade` only from that account. `ew doctor` enforces this: on any other account it lists what is missing, names the owner, and installs nothing.
+- **Never run the `sudo chown -R $(whoami) /opt/homebrew …` that Homebrew suggests** when it says a directory is "not writable". It hands the whole of Homebrew to the current account, and the previous owner's shell then stops on `zsh compinit: insecure directories` at every launch.
+- **`ew uninstall` is per account.** It removes only the current account's setup. `ew uninstall --system` removes the shared files for everyone — run `ew uninstall` in each account first.
+- **After `ew update`**, the account that ran it is refreshed automatically; the other accounts run `ew setup` once to pick up the new shell block.
 
 ### Upgrade
 
@@ -73,6 +102,19 @@ After install, open a **new** terminal tab — the welcome banner appears, and `
 ew update          # fetches latest from GitHub Releases, sha256-verifies, installs
 ew update --check  # just check; don't install
 ```
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `ew: command not found` | `/usr/local/bin` is not on PATH, or the `.pkg` was never installed on this Mac | `ls -l /usr/local/bin/ew`; if it exists, add `/usr/local/bin` to PATH, otherwise run the install command |
+| No banner, plain prompt on a second account | Per-user setup never ran for this account | [Additional macOS accounts](#additional-macos-accounts) |
+| `ewallis-terminal: missing deps` at startup | `starship` or `fzf` is not installed | `ew doctor --check-only` names what is missing. Homebrew owner account: `ew doctor` installs it. Other accounts: log in as the owner and run `ew doctor` there |
+| Icons show as boxes | The terminal is not using the font, or it was open during the install | Quit and reopen the terminal app; check `ls /Library/Fonts/JetBrainsMonoN*`; for IDE terminals see [IDE Terminal Icons](#ide-terminal-icons) |
+| `zsh compinit: insecure directories … [y] or abort [n]?` at startup | A completion directory on `fpath` belongs to another account — almost always Homebrew after a `chown` from a different user | On the Homebrew owner account: `compaudit` lists the directories. From the account that should own Homebrew: `sudo chown -R "$(whoami)":admin "$(brew --prefix)"` |
+| `brew install` says "not writable" | You are not the Homebrew owner | Switch to the owner account. Do not run the suggested `chown` |
+
+On an account that does not own Homebrew, the same prompt appears when some *other* line in `~/.zshrc` calls `compinit` itself (bun, nvm and similar installers append one) above the managed block. Do not `chown` anything there — move that line below the `# <<< ewallis-terminal <<<` marker. By then completion is already initialised, so the tool skips its own `compinit` and the prompt never runs.
 
 ---
 
@@ -92,6 +134,7 @@ ew predict-off          Predict from history only (lighter)
 ew completions          Manage auto-harvested completions (list/add/refresh/clear)
 ew completions add <t>  Force-harvest one tool's completion now
 ew autocomplete on/off  Live narrowing list under the prompt (opt-in) vs Tab menu
+ew icons default/catppuccin  Ctrl+F path picker: generic glyphs vs per-file-type
 ew doctor               Check deps; offer to brew-install missing ones
 ew doctor --self-test   Sandboxed install/theme/uninstall regression test
 ew setup                Re-run per-user setup (rc inject, plugin theme deploy)
@@ -122,14 +165,14 @@ ew version              Installed version
 ### Style A — Powerline (solid background segments)
 
 ```
-  dangnguyen  󰉋 loubot   󰘬 main 󰏭 󰋗    󰌠 v3.12   󰎙 v20.11        󱎫 12s  󰥔 22:31
+  dangnguyen   loubot    main       v3.12    v20.11         12s   22:31
 ❯
 ```
 
 ### Style B — Text-only (colored, no backgrounds) — *default*
 
 ```
-  dangnguyen  󰉋 loubot  󰘬 main  󰌠 v3.12  󰎙 v20.11               󱎫 12s  󰥔 22:31
+  dangnguyen   loubot   main   v3.12   v20.11                12s   22:31
 ❯
 ```
 
@@ -155,7 +198,8 @@ Everything ships under one directory plus one PATH binary:
 │   └── fzf-tab/                  vendored v1.3.0 (fzf Tab menu)
 ├── zsh/                          harvest.zsh (completion harvester), path-picker.zsh
 ├── snippets/                     zshrc.sh, zprofile.sh, bashrc.sh, fish.fish
-├── VERSION                       3.0.1
+├── fonts/                        JetBrainsMono Nerd Font Mono v3.5.1 (4 faces, OFL) → copied to /Library/Fonts
+├── VERSION                       3.0.2
 └── update-source.toml            GitHub repo for `ew update`
 
 /usr/local/bin/ew                  → /usr/local/share/.../bin/ew    (single PATH binary)
@@ -206,6 +250,14 @@ The picker shows **session-only history**, not your full `~/.zsh_history` — ex
 ### Ctrl+F path picker
 
 Press **Ctrl+F** while typing a path (after `cd`, `ls`, `vim`, …) — or on an empty line — to open an fzf browser of the target directory, grouped into Folders / Files / Other. Selecting a folder drills into it; selecting a file inserts it into your command line. Deliberately bound to an explicit key only: it never auto-opens while you type.
+
+By default, entries use 3 generic glyphs (folder / file / other). Switch to a **Catppuccin-colored, per-file-type icon set** — `.py`, `.md`, `.json`, `.rs`, images, locks, and ~20 more, each its own glyph and palette color — with:
+
+```sh
+ew icons catppuccin      # per-file-type glyphs, palette-colored
+ew icons default         # back to the 3 generic glyphs
+ew icons toggle
+```
 
 ### Completion prediction
 
@@ -262,13 +314,13 @@ All are palette-themed: their colors are regenerated by `ew theme` so they match
 | Tool | Required? | Auto-installed via `ew doctor` |
 |---|---|---|
 | macOS | yes | — |
-| Homebrew | yes | no (run `brew.sh` install first) |
-| Starship | yes | ✓ `brew install starship` |
+| Homebrew | only if starship/fzf are missing | no (run `brew.sh` install first) |
+| Starship | yes | ✓ `brew install starship` (the installer does this for you) |
 | fzf | recommended | ✓ `brew install fzf` |
-| JetBrainsMono Nerd Font | recommended | ✓ `brew install --cask font-jetbrains-mono-nerd-font` |
+| JetBrainsMono Nerd Font | yes | bundled in the `.pkg`, installed to `/Library/Fonts` |
 | iTerm2 | recommended | ✓ `brew install --cask iterm2` (soft-warn only) |
 
-Run `ew doctor` after install and accept the install prompt — it handles all of the above.
+On the account that owns Homebrew, `ew doctor` offers to install whatever is missing. On any other account it reports what is missing and installs nothing — see [Additional macOS accounts](#additional-macos-accounts).
 
 ---
 
@@ -276,7 +328,7 @@ Run `ew doctor` after install and accept the install prompt — it handles all o
 
 ```sh
 ew uninstall              # remove everything ours; your own edits are never touched
-ew uninstall --system     # same, plus remove /usr/local/share/ewallis-terminal/ (needs sudo)
+ew uninstall --system     # same, plus remove /usr/local/share/ewallis-terminal/ and the fonts it added (needs sudo)
 ew uninstall --purge      # also delete the kept pre-install backups
 ew uninstall --dry-run    # show what would happen, don't change anything
 ```
@@ -338,10 +390,10 @@ If you want to rebuild the `.pkg` yourself:
 git clone https://github.com/ewalliss/Terminal.git ~/Terminal
 cd ~/Terminal
 zsh pkg/build.sh
-# → dist/EwallisTerminal-3.0.1.pkg + .sha256 sidecar
+# → dist/EwallisTerminal-3.0.2.pkg + .sha256 sidecar
 ```
 
-The build script vendors plugins (clones pinned tags), generates 4 iTerm2 profiles + 4 Terminal.app profiles + 4 plugin themes + 2 merged Starship configs from Catppuccin palette data, then runs `pkgbuild`.
+The build script vendors plugins (clones pinned tags) and the icon font (pinned Nerd Fonts release), generates 4 iTerm2 profiles + 4 Terminal.app profiles + 4 plugin themes + 2 merged Starship configs from Catppuccin palette data, then runs `pkgbuild`.
 
 ---
 
@@ -365,35 +417,37 @@ If icons appear as boxes `?` in your IDE's terminal, set the font to **JetBrains
 
 ## Segments & Icons
 
-All icons use the [Material Design](https://pictogrammers.com/library/mdi/) Nerd Font set (`nf-md-*`). Segments appear automatically when the relevant tool is detected in your current directory.
+Icons come from the Font Awesome / Devicons / Seti Nerd Font sets (`nf-fa-*`, `nf-dev-*`, `nf-seti-*`, `nf-linux-*`). Segments appear automatically when the relevant tool is detected in your current directory.
+
+> **Why not Material Design (`nf-md-*`)?** Nerd Fonts v3 relocated the Material Design icons to Unicode Plane 15 (`U+F0001`–`U+F1AF0`), above `U+FFFF`. **macOS Terminal.app cannot render codepoints above `U+FFFF`** — they show as empty boxes (tofu), even though the glyphs are present in the font. Since Terminal.app is this project's primary target, every icon here is deliberately chosen from the Basic Multilingual Plane (`≤ U+FFFF`). If you add an icon, verify its codepoint is 4 hex digits, not 5.
 
 | Segment | Icon | Color |
 |---|---|---|
 | OS (Apple) | `` | Mauve |
 | Username | — | Mauve |
-| Directory | `󰉋` | Pink |
-| Git branch | `󰘬` | Blue |
-| Git modified | `󰏭` | Blue |
-| Git staged | `󰐕` | Blue |
-| Git untracked | `󰋗` | Blue |
-| Git ahead/behind | `󰜷` `󰜮` | Blue |
-| Python | `󰌠` | Green |
-| Node.js | `󰎙` | Teal |
-| Rust | `󱘗` | Peach |
-| Go | `󰟓` | Sky |
-| Java | `󰬷` | Yellow |
-| Ruby | `󰴭` | Red |
-| PHP | `󰌟` | Mauve |
-| Swift | `󰛥` | Peach |
-| Kotlin | `󱈙` | Mauve |
-| Docker | `󰡨` | Blue |
-| Kubernetes | `󱃾` | Blue |
-| AWS | `󰸏` | Peach |
-| GCP | `󱇶` | Blue |
-| Azure | `󰠅` | Blue |
-| Terraform | `󱁢` | Mauve |
-| Command duration | `󱎫` | Yellow |
-| Clock | `󰥔` | Subtext |
+| Directory | `` | Pink |
+| Git branch | `` | Blue |
+| Git modified | `` | Blue |
+| Git staged | `` | Blue |
+| Git untracked | `` | Blue |
+| Git ahead/behind | `` `` | Blue |
+| Python | `` | Green |
+| Node.js | `` | Teal |
+| Rust | `` | Peach |
+| Go | `` | Sky |
+| Java | `` | Yellow |
+| Ruby | `` | Red |
+| PHP | `` | Mauve |
+| Swift | `` | Peach |
+| Kotlin | `` | Mauve |
+| Docker | `` | Blue |
+| Kubernetes | `` | Blue |
+| AWS | `` | Peach |
+| GCP | `` | Blue |
+| Azure | `` | Blue |
+| Terraform | `` | Mauve |
+| Command duration | `` | Yellow |
+| Clock | `` | Subtext |
 
 ---
 

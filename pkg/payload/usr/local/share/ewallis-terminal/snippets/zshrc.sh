@@ -1,10 +1,24 @@
 # >>> ewallis-terminal >>>
 # Managed block — do not edit between these markers.
-# Anything inside is overwritten on reinstall and on `ewallis-theme` switches.
+# Anything inside is overwritten on reinstall and on `ew setup`.
 # Put YOUR customizations AFTER the closing marker.
-# Remove with: /usr/local/share/ewallis-terminal/bin/ewallis-terminal-uninstall
+# Remove with: ew uninstall
 _EWALLIS_PKG_ROOT="/usr/local/share/ewallis-terminal"
 _EWALLIS_PLUGINS="$_EWALLIS_PKG_ROOT/plugins"
+
+# 0. Homebrew on PATH — a fresh macOS account has no `brew shellenv` line, so
+#    starship/fzf would look missing even though they are installed. Non-login
+#    shells skip ~/.zprofile, so this is repeated here. Read-only:
+#    this never writes to the Homebrew prefix, whoever owns it.
+if ! command -v brew >/dev/null 2>&1; then
+  for _ewallis_brew in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    if [[ -x "$_ewallis_brew" ]]; then
+      eval "$("$_ewallis_brew" shellenv)"
+      break
+    fi
+  done
+  unset _ewallis_brew
+fi
 
 # 1. Completion engine — powers Tab completion AND completion-based prediction.
 #    macOS zsh ships ~966 completion definitions (git, ssh, brew, kubectl…);
@@ -26,17 +40,26 @@ if (( ! $+functions[compdef] )); then
     && fpath=("$HOME/.config/ewallis-terminal/completions" $fpath)
 
   autoload -Uz compinit
-  # Cache the compdump per-day to keep startup fast; -C skips the security
-  # audit. Safe: fpath dirs are either root-owned (/usr/local) or user-owned
-  # (~/.config/ewallis-terminal/completions), and the harvester writes 0644.
+  # Cache the compdump per-day to keep startup fast: -C trusts a dump younger
+  # than 24h, otherwise rebuild. The freshness test is a plain glob qualifier
+  # in an array assignment — the `(#q…)` form needs EXTENDED_GLOB, which is
+  # off by default, and without it the test was always true (never rebuilt).
+  # -u: use fpath dirs owned by another account without the interactive
+  # "insecure directories" prompt. On a shared Mac that is Homebrew's
+  # site-functions for every account but its owner, and this shell already
+  # runs binaries from that same prefix on every prompt.
   _ewallis_zcd="$HOME/.config/ewallis-terminal/zcompdump"
-  if [[ -n "$_ewallis_zcd"(#qN.mh-24) ]]; then
+  _ewallis_zcd_fresh=("$_ewallis_zcd"(N.mh-24))
+  if (( $#_ewallis_zcd_fresh )); then
     compinit -C -d "$_ewallis_zcd"
   else
     mkdir -p "${_ewallis_zcd:h}"
-    compinit -d "$_ewallis_zcd"
+    compinit -u -d "$_ewallis_zcd"
+    # compinit only rewrites the dump when the set of completion files
+    # changed; bump the mtime so the next 24h take the cached path again.
+    [[ -f "$_ewallis_zcd" ]] && touch "$_ewallis_zcd"
   fi
-  unset _ewallis_zcd
+  unset _ewallis_zcd _ewallis_zcd_fresh
 fi
 
 # 2. Auto-detect completion harvester — when you run a tool with no completion,
@@ -185,7 +208,7 @@ fi
 
 # 11. Doctor nag — silent if all deps satisfied
 if [[ -f "$HOME/.local/share/ewallis-terminal/needs-doctor" ]]; then
-  print -P -- "%F{214}!%f ewallis-terminal: missing deps. Run: %F{141}ewallis-terminal-doctor%f"
+  print -P -- "%F{214}!%f ewallis-terminal: missing deps. Run: %F{141}ew doctor --check-only%f"
 fi
 
 # 12. Welcome banner — shows once per top-level interactive shell.

@@ -296,6 +296,11 @@ if (( DO_SYSTEM )); then
     for lnk in "${SYSTEM_LINKS[@]}"; do
       [[ -L "$lnk" || -e "$lnk" ]] && print -P -- "%F{245}  dry  sudo rm -f $lnk%f"
     done
+    if [[ -r "$PKG_ROOT/fonts/.installed-system-fonts" ]]; then
+      while IFS= read -r fname; do
+        [[ "$fname" == JetBrainsMonoNerdFontMono-*.ttf ]] && print -P -- "%F{245}  dry  sudo rm -f /Library/Fonts/$fname%f"
+      done < "$PKG_ROOT/fonts/.installed-system-fonts"
+    fi
     print -P -- "%F{245}  dry  sudo rm -rf $PKG_ROOT%f"
     print -P -- "%F{245}  dry  sudo pkgutil --forget $PKG_ID%f"
   else
@@ -315,6 +320,16 @@ if (( DO_SYSTEM )); then
     if (( ${#links_to_remove[@]} > 0 )); then
       sudo /bin/rm -f -- "${links_to_remove[@]}"
       for lnk in "${links_to_remove[@]}"; do ok "removed symlink: $lnk"; done
+    fi
+
+    # Fonts postinstall copied to /Library/Fonts — only the ones it recorded,
+    # so a font that was already there before the install is left alone.
+    if [[ -r "$PKG_ROOT/fonts/.installed-system-fonts" ]]; then
+      while IFS= read -r fname; do
+        [[ "$fname" == JetBrainsMonoNerdFontMono-*.ttf ]] || continue
+        [[ -f "/Library/Fonts/$fname" ]] || continue
+        sudo /bin/rm -f -- "/Library/Fonts/$fname" && ok "removed font: /Library/Fonts/$fname"
+      done < "$PKG_ROOT/fonts/.installed-system-fonts"
     fi
 
     if (( needs_dir_rm )); then
