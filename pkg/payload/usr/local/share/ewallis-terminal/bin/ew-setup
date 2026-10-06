@@ -46,6 +46,16 @@ if [[ ! -d "$PKG_ROOT" ]]; then
   exit 66
 fi
 
+# A fresh macOS account has no `brew shellenv` line yet, so Homebrew's bin dir
+# is not on PATH. Add it for this run so installed tools are not reported
+# missing (the managed shell block does the same for interactive shells).
+for _brew_bin in /opt/homebrew/bin /usr/local/bin; do
+  if [[ -x "$_brew_bin/brew" && ":$PATH:" != *":$_brew_bin:"* ]]; then
+    export PATH="$PATH:$_brew_bin"
+  fi
+done
+unset _brew_bin
+
 # ─── Style helpers (no external deps) ────────────────────────────────────────
 say()  { print -P -- "%F{141}==>%f $*"; }
 ok()   { print -P -- "%F{114}  ok%f $*"; }
@@ -215,7 +225,7 @@ if [[ -z "${EWALLIS_NO_TERMINAL_PROFILE:-}" ]]; then
     GLASS_FILE="$HOME/.config/ewallis-terminal/glass"
     terminal_payload="$(cat "$TERMINAL_SRC")"
     if [[ -r "$GLASS_FILE" ]]; then
-      read -r g_op g_blur < "$GLASS_FILE"
+      IFS=' ' read -r g_op g_blur < "$GLASS_FILE"   # script IFS has no space
       terminal_payload="$(/usr/bin/python3 - "$TERMINAL_SRC" "$g_op" "$g_blur" <<'PY'
 import plistlib, sys
 path, op, blur = sys.argv[1], float(sys.argv[2]) / 100, float(sys.argv[3]) / 100
@@ -286,12 +296,21 @@ if command -v mdfind >/dev/null 2>&1; then
   [[ -n "$(mdfind 'kMDItemFSName == "JetBrainsMonoNerdFontMono-Regular.ttf" || kMDItemFSName == "JetBrainsMonoNFM-Regular.ttf"' 2>/dev/null | head -1)" ]] \
     && font_found=1
 fi
+# Spotlight lags behind a font that was just copied in; fall back to a scan.
+if (( ! font_found )); then
+  for d in "$HOME/Library/Fonts" "/Library/Fonts"; do
+    if [[ -d "$d" ]] && ls "$d"/JetBrainsMonoN*.ttf >/dev/null 2>&1; then
+      font_found=1
+      break
+    fi
+  done
+fi
 (( font_found )) || missing_deps+=("font-jetbrains-mono-nerd-font")
 
 if (( ${#missing_deps[@]} > 0 )); then
   touch "$STATE_DIR/needs-doctor"
   manifest_record "deployed" "$STATE_DIR/needs-doctor"
-  warn "missing deps: ${missing_deps[*]} — run 'ewallis-terminal-doctor' to fix"
+  warn "missing deps: ${missing_deps[*]} — run 'ew doctor --check-only' to see what is missing"
 else
   /bin/rm -f "$STATE_DIR/needs-doctor"
   ok "all deps present"

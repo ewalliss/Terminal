@@ -8,3 +8,6 @@ claude_code_cli
 # Build artifacts — distribute via GitHub Releases, not git
 dist/*.pkg
 dist/
+
+# Vendored at build time by pkg/build.sh (pinned Nerd Fonts release)
+pkg/payload/usr/local/share/ewallis-terminal/fonts/

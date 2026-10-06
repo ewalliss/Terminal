@@ -194,7 +194,7 @@ if [[ -z "${EWALLIS_NO_TERMINAL_PROFILE:-}" ]]; then
     GLASS_FILE="$HOME/.config/ewallis-terminal/glass"
     terminal_payload="$(cat "$SRC_TERMINAL")"
     if [[ -r "$GLASS_FILE" ]]; then
-      read -r g_op g_blur < "$GLASS_FILE"
+      IFS=' ' read -r g_op g_blur < "$GLASS_FILE"   # script IFS has no space
       terminal_payload="$(/usr/bin/python3 - "$SRC_TERMINAL" "$g_op" "$g_blur" <<'PY'
 import plistlib, sys
 path, op, blur = sys.argv[1], float(sys.argv[2]) / 100, float(sys.argv[3]) / 100

@@ -4,7 +4,7 @@
 #
 # Job: figure out who the GUI-logged-in user is, drop to that user, and run
 # the per-user setup. Multi-user Macs can rerun the setup per user with:
-#   /usr/local/share/ewallis-terminal/bin/ewallis-terminal-setup-user
+#   ew setup
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
 export LANG="${LANG:-en_US.UTF-8}"
@@ -23,6 +23,31 @@ fi
 # Make sure all our bin scripts are executable (pkgbuild preserves mode, but
 # belt-and-braces).
 /bin/chmod 0755 "$PKG_ROOT"/bin/* 2>/dev/null || true
+
+# ─── Icon font for every account ────────────────────────────────────────────
+# Without it the prompt and banner render as boxes. /Library/Fonts is visible
+# to all users; never overwrite a file that is already there. Names of the
+# files we add are recorded so `ew uninstall --system` removes only those.
+FONT_SRC="$PKG_ROOT/fonts"
+FONT_LOG="$PKG_ROOT/fonts/.installed-system-fonts"
+if [[ -d "$FONT_SRC" ]]; then
+  /bin/mkdir -p /Library/Fonts
+  for f in "$FONT_SRC"/*.ttf; do
+    [[ -f "$f" ]] || continue
+    name="${f##*/}"
+    if [[ ! -e "/Library/Fonts/$name" ]]; then
+      /bin/cp "$f" "/Library/Fonts/$name" \
+        && /bin/chmod 0644 "/Library/Fonts/$name" \
+        && /bin/echo "$name" >> "$FONT_LOG" \
+        && log "font installed: /Library/Fonts/$name"
+    fi
+  done
+fi
+
+# The one PATH binary. Created before per-user setup so a failure there can
+# never leave the Mac without `ew`.
+/bin/mkdir -p /usr/local/bin
+/bin/ln -sfh "$PKG_ROOT/bin/ew" /usr/local/bin/ew 2>/dev/null || true
 
 # ─── Who is the actual user? ────────────────────────────────────────────────
 # When the .pkg runs via Installer.app or `sudo installer`, $USER is "root"
@@ -49,6 +74,19 @@ fi
 
 log "running per-user setup as $CONSOLE_USER (HOME=$USER_HOME)"
 
+# ─── Log file ────────────────────────────────────────────────────────────────
+# The redirect below is opened by this root shell before ew-setup runs. On an
+# account that has never been set up the directory does not exist yet, the
+# redirect fails, and the setup command is never executed at all — so create
+# it first, as the user so ownership is right.
+USER_STATE="$USER_HOME/.local/share/ewallis-terminal"
+USER_LOG="$USER_STATE/postinstall.log"
+/usr/bin/sudo -u "$CONSOLE_USER" -H /bin/mkdir -p "$USER_STATE" 2>/dev/null || true
+if [[ ! -d "$USER_STATE" ]]; then
+  log "WARN: could not create $USER_STATE — setup output goes to the installer log"
+  USER_LOG="/dev/stdout"
+fi
+
 # ─── Drop privileges and run setup-user ──────────────────────────────────────
 # Use `sudo -u` with -H to set HOME, and a clean PATH so the user sees
 # /usr/local/bin and /opt/homebrew/bin (starship etc.).
@@ -60,8 +98,32 @@ log "running per-user setup as $CONSOLE_USER (HOME=$USER_HOME)"
     PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
     LANG="en_US.UTF-8" \
   /bin/zsh "$SETUP_USER" \
-  >> "$USER_HOME/.local/share/ewallis-terminal/postinstall.log" 2>&1 \
-  || log "WARN: setup-user exited non-zero — see $USER_HOME/.local/share/ewallis-terminal/postinstall.log"
+  >> "$USER_LOG" 2>&1 \
+  || log "WARN: setup-user exited non-zero — see $USER_LOG"
+
+# ─── Missing tools (starship / fzf) ─────────────────────────────────────────
+# Setup leaves a needs-doctor flag when something is missing. Install it now,
+# as the user, so one installer run ends with a complete terminal. ew-doctor
+# refuses by itself when this user does not own Homebrew.
+if [[ -f "$USER_HOME/.local/share/ewallis-terminal/needs-doctor" ]]; then
+  log "dependencies missing — running ew doctor --auto as $CONSOLE_USER"
+  /usr/bin/sudo -u "$CONSOLE_USER" -H \
+    /usr/bin/env \
+      HOME="$USER_HOME" \
+      USER="$CONSOLE_USER" \
+      LOGNAME="$CONSOLE_USER" \
+      PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+      LANG="en_US.UTF-8" \
+      NONINTERACTIVE=1 \
+    /bin/zsh "$PKG_ROOT/bin/ew-doctor" --auto \
+    >> "$USER_LOG" 2>&1 \
+    || log "WARN: some dependencies still missing — run: ew doctor"
+fi
+
+# The log was created by root; hand it to the user so they can read/delete it.
+if [[ -f "$USER_LOG" && ! -L "$USER_LOG" ]]; then
+  /usr/sbin/chown "$CONSOLE_USER" "$USER_LOG" 2>/dev/null || true
+fi
 
 # Symlink the per-user setup + uninstall scripts into /usr/local/bin so they
 # appear in PATH. Use -h to overwrite existing symlinks safely.

@@ -105,6 +105,16 @@ if (( SELF_TEST )); then
   fi
 fi
 
+# A fresh macOS account has no `brew shellenv` line yet, so Homebrew's bin dir
+# is not on PATH. Add it for this run so installed tools are not reported
+# missing (the managed shell block does the same for interactive shells).
+for _brew_bin in /opt/homebrew/bin /usr/local/bin; do
+  if [[ -x "$_brew_bin/brew" && ":$PATH:" != *":$_brew_bin:"* ]]; then
+    export PATH="$PATH:$_brew_bin"
+  fi
+done
+unset _brew_bin
+
 say()  { print -P -- "%F{141}==>%f $*"; }
 ok()   { print -P -- "%F{114}  ✓%f $*"; }
 miss() { print -P -- "%F{196}  ✗%f $*"; }
@@ -217,13 +227,33 @@ fi
 
 # Homebrew itself is missing → we cannot proceed automatically.
 if (( ! HAVE_BREW )); then
-  warn "Install Homebrew first, then re-run: ewallis-terminal-doctor"
+  warn "Install Homebrew first, then re-run: ew doctor"
   warn "https://brew.sh"
   exit 1
 fi
 
 if (( n_installable == 0 )); then
   warn "Nothing brew can fix here."
+  exit 1
+fi
+
+# Homebrew has exactly one owning account. Installing from any other account
+# fails with "not writable", and the `sudo chown` brew then suggests hands the
+# whole prefix to this account and breaks the owner's shell. Refuse instead.
+BREW_PREFIX="$($BREW --prefix 2>/dev/null || true)"
+BREW_OWNER="$(/usr/bin/stat -f '%Su' "$BREW_PREFIX" 2>/dev/null || true)"
+if [[ -n "$BREW_OWNER" && "$BREW_OWNER" != "$(id -un)" ]]; then
+  warn "Homebrew ($BREW_PREFIX) is owned by '$BREW_OWNER', not by you."
+  note "Nothing was installed. Log in as '$BREW_OWNER' and run there:"
+  for cmd in "${INSTALL_CMDS[@]}"; do
+    note "  $cmd"
+  done
+  if (( ${MISSING[(Ie)font]} )); then
+    note "The font installs into that account only. To share it with every account,"
+    note "'$BREW_OWNER' then runs:"
+    note "  sudo cp ~/Library/Fonts/JetBrainsMonoN*.ttf /Library/Fonts/"
+  fi
+  note "Do NOT run the 'sudo chown' that brew suggests from this account."
   exit 1
 fi
 
