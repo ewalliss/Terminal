@@ -11,7 +11,7 @@ set -euo pipefail
 IFS=$'\n\t'
 export LANG="${LANG:-en_US.UTF-8}"
 
-PKG_VERSION="3.0.2"  # v3.0.2 — bundled Nerd Font, multi-account fixes
+PKG_VERSION="3.0.3"  # v3.0.3 — clock on the info line, build temp cleanup
 PKG_ID="com.ewalliss.ewallis-terminal"
 PKG_NAME="EwallisTerminal"
 INSTALL_LOCATION="/"
@@ -126,6 +126,8 @@ else
     }
   done
   [[ -f "$font_tmp/OFL.txt" ]] && cp "$font_tmp/OFL.txt" "$FONT_DIR/OFL.txt"
+  # The archive unpacks ~96 faces (~240 MB); we keep 4.
+  rm -rf "$font_tmp"
   print -- "$NERD_FONT_REF" > "$FONT_DIR/.ewallis-version"
   ok "fonts/  JetBrainsMono Nerd Font Mono @ $NERD_FONT_REF"
 fi
