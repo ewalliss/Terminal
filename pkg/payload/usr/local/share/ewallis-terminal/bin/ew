@@ -24,6 +24,9 @@
 #   ew autocomplete on      Live narrowing list under the prompt (heavier; opt-in).
 #   ew autocomplete off     Back to the Tab-triggered fzf menu (default; faster).
 #   ew autocomplete toggle  Flip whichever state it's currently in.
+#   ew icons default        Ctrl+F path picker: 3 generic folder/file glyphs.
+#   ew icons catppuccin     Ctrl+F path picker: per-file-type glyphs, palette-colored.
+#   ew icons toggle         Flip whichever state it's currently in.
 #   ew doctor [args…]       Check dependencies; --self-test for full cycle.
 #   ew setup [args…]        Re-run per-user setup (rc inject, plugin theme).
 #   ew update [--check]     Check GitHub Releases; install latest .pkg.
@@ -45,6 +48,7 @@ BANNER_OFF_FLAG="$CFG_DIR/banner.disabled"
 COLORS_OFF_FLAG="$CFG_DIR/colors.disabled"
 PREDICT_OFF_FLAG="$CFG_DIR/predict-completion.disabled"
 AUTOCOMPLETE_ON_FLAG="$CFG_DIR/autocomplete.enabled"
+ICONS_ON_FLAG="$CFG_DIR/icons.catppuccin"
 STATE_FILE="$CFG_DIR/state.toml"
 
 say()  { print -P -- "%F{141}==>%f $*"; }
@@ -54,7 +58,7 @@ warn() { print -P -- "%F{214}  !%f $*"; }
 err()  { print -u2 -P -- "%F{196}  ✗%f $*"; }
 
 usage() {
-  sed -n '3,32p' "$SCRIPT_PATH" | sed -E 's/^# ?//'
+  sed -n '3,35p' "$SCRIPT_PATH" | sed -E 's/^# ?//'
 }
 
 # ─── ew update ───────────────────────────────────────────────────────────────
@@ -333,6 +337,32 @@ autocomplete_toggle() {
   fi
 }
 
+icons_status() {
+  [[ -f "$ICONS_ON_FLAG" ]] && print -- "catppuccin" || print -- "default"
+}
+
+icons_default() {
+  /bin/rm -f "$ICONS_ON_FLAG"
+  ok "icons: default (3 generic folder/file glyphs in the Ctrl+F path picker)"
+  info "takes effect in a new shell (or: exec zsh)"
+}
+
+icons_catppuccin() {
+  mkdir -p "$CFG_DIR"
+  touch "$ICONS_ON_FLAG"
+  ok "icons: catppuccin (per-file-type glyphs, palette-colored, in the Ctrl+F path picker)"
+  info "re-disable with: ew icons default"
+  info "takes effect in a new shell (or: exec zsh)"
+}
+
+icons_toggle() {
+  if [[ -f "$ICONS_ON_FLAG" ]]; then
+    icons_default
+  else
+    icons_catppuccin
+  fi
+}
+
 banner_status() {
   [[ -f "$BANNER_OFF_FLAG" ]] && print -- "off" || print -- "on"
 }
@@ -400,6 +430,11 @@ show_status() {
   else
     print -P -- "  menu     %F{245}tab%f      fzf menu on Tab (ew autocomplete on for live list)"
   fi
+  if [[ -f "$ICONS_ON_FLAG" ]]; then
+    print -P -- "  icons    %F{114}catppuccin%f  per-file-type glyphs (ew icons default for generic)"
+  else
+    print -P -- "  icons    %F{245}default%f  generic glyphs (ew icons catppuccin for per-file-type)"
+  fi
   local g_op=60 g_blur=70
   [[ -r "$CFG_DIR/glass" ]] && read -r g_op g_blur < "$CFG_DIR/glass"
   if (( g_op >= 100 )); then
@@ -408,7 +443,7 @@ show_status() {
     print -P -- "  glass    %F{114}on%f       ${g_op}%% · blur ${g_blur}%%  (ew glass off to disable)"
   fi
   print -- ""
-  print -P -- "  %F{245}commands: theme · glass · predict-on/off · autocomplete · completions · colors-on/off · doctor · uninstall%f"
+  print -P -- "  %F{245}commands: theme · glass · predict-on/off · autocomplete · icons · completions · colors-on/off · doctor · uninstall%f"
   print -- ""
 }
 
@@ -440,6 +475,15 @@ case "$cmd" in
       toggle) autocomplete_toggle ;;
       status) autocomplete_status ;;
       *) err "usage: ew autocomplete on|off|toggle|status"; exit 2 ;;
+    esac
+    ;;
+  icons)
+    case "${1:-toggle}" in
+      default|off)        icons_default ;;
+      catppuccin|on)      icons_catppuccin ;;
+      toggle)             icons_toggle ;;
+      status)             icons_status ;;
+      *) err "usage: ew icons default|catppuccin|toggle|status"; exit 2 ;;
     esac
     ;;
   completions|complete)        exec "$PKG_ROOT/bin/ew-completions" "$@" ;;

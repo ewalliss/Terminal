@@ -204,40 +204,40 @@ banner "5a — Base prompt: OS · user · directory · git"
 print ""
 print "  \033[38;5;240m  ~/projects  (no language detected)\033[0m"
 prompt; seg \$M  \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 ~/projects" \$BL
-        seg \$BL \$FG "󰘬 main" ""
+        seg \$PK \$FG " ~/projects" \$BL
+        seg \$BL \$FG " main" ""
         segend \$BL
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  git: modified + untracked files\033[0m"
 prompt; seg \$M  \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 loubot" \$BL
-        seg \$BL \$FG "󰘬 main 󰏭 󰋗 " ""
+        seg \$PK \$FG " loubot" \$BL
+        seg \$BL \$FG " main   " ""
         segend \$BL
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  git: staged + ahead of remote\033[0m"
 prompt; seg \$M  \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 loubot" \$BL
-        seg \$BL \$FG "󰘬 main 󰐕 󰜷2" ""
+        seg \$PK \$FG " loubot" \$BL
+        seg \$BL \$FG " main  2" ""
         segend \$BL
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  git: behind + conflicted\033[0m"
 prompt; seg \$M  \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 loubot" \$BL
-        seg \$BL \$FG "󰘬 main 󰀨 󰜮3" ""
+        seg \$PK \$FG " loubot" \$BL
+        seg \$BL \$FG " main  3" ""
         segend \$BL
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  read-only directory\033[0m"
 prompt; seg \$M  \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 /etc 󰌾" \$BL
-        seg \$BL \$FG "󰘬 main" ""
+        seg \$PK \$FG " /etc " \$BL
+        seg \$BL \$FG " main" ""
         segend \$BL
 cursor "_"
 print ""
@@ -251,74 +251,74 @@ print ""
 
 print "  \033[38;5;240m  Python project\033[0m"
 prompt; seg \$M  \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 loubot" \$BL
-        seg \$BL \$FG "󰘬 main" \$GR
-        seg \$GR \$FG "󰌠 v3.12 (venv)" \$TL
+        seg \$PK \$FG " loubot" \$BL
+        seg \$BL \$FG " main" \$GR
+        seg \$GR \$FG " v3.12 (venv)" \$TL
         segend \$TL
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  Node.js project\033[0m"
 prompt; seg \$M  \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 my-app" \$BL
-        seg \$BL \$FG "󰘬 main" \$GR
-        seg \$GR \$FG "󰌠 v3.12" \$TL
-        seg \$TL \$FG "󰎙 v20.11" \$S0
+        seg \$PK \$FG " my-app" \$BL
+        seg \$BL \$FG " main" \$GR
+        seg \$GR \$FG " v3.12" \$TL
+        seg \$TL \$FG " v20.11" \$S0
         segend \$S0
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  Rust project\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 my-crate" \$BL
-        seg \$BL \$FG "󰘬 main" \$GR
-        seg \$GR \$FG "󰌠 v3.12" \$TL
-        seg \$TL \$FG "󰎙 v20.11" \$S0
-        seg \$S0 215  "󱘗 v1.77" ""
+        seg \$PK \$FG " my-crate" \$BL
+        seg \$BL \$FG " main" \$GR
+        seg \$GR \$FG " v3.12" \$TL
+        seg \$TL \$FG " v20.11" \$S0
+        seg \$S0 215  " v1.77" ""
         segend \$S0
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  Go project\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 my-service" \$BL
-        seg \$BL \$FG "󰘬 main" \$GR
-        seg \$GR \$FG "󰌠 v3.12" \$TL
-        seg \$TL \$FG "󰎙 v20.11" \$S0
-        seg \$S0 116  "󰟓 v1.22" ""
+        seg \$PK \$FG " my-service" \$BL
+        seg \$BL \$FG " main" \$GR
+        seg \$GR \$FG " v3.12" \$TL
+        seg \$TL \$FG " v20.11" \$S0
+        seg \$S0 116  " v1.22" ""
         segend \$S0
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  Java project\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 spring-app" \$BL
-        seg \$BL \$FG "󰘬 main" \$TL
-        seg \$TL \$FG "󰎙 v20.11" \$S0
-        seg \$S0 229  "󰬷 v21" ""
+        seg \$PK \$FG " spring-app" \$BL
+        seg \$BL \$FG " main" \$TL
+        seg \$TL \$FG " v20.11" \$S0
+        seg \$S0 229  " v21" ""
         segend \$S0
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  Ruby · PHP · Swift · Kotlin · Lua\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 rails-app" \$S0
-        seg \$S0 203  "󰴭 v3.3" \$S0
-        seg \$S0 141  "󰌟 v8.3" \$S0
-        seg \$S0 215  "󰛥 v5.10" \$S0
-        seg \$S0 141  "󱈙 v1.9" \$S0
-        seg \$S0 111  "󰢱 v5.4" ""
+        seg \$PK \$FG " rails-app" \$S0
+        seg \$S0 203  " v3.3" \$S0
+        seg \$S0 141  " v8.3" \$S0
+        seg \$S0 215  " v5.10" \$S0
+        seg \$S0 141  " v1.9" \$S0
+        seg \$S0 111  " v5.4" ""
         segend \$S0
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  Elixir · Erlang · Scala · Haskell · Zig\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 phoenix" \$S0
+        seg \$PK \$FG " phoenix" \$S0
         seg \$S0 141  " v1.16" \$S0
         seg \$S0 203  " v26" \$S0
         seg \$S0 203  " v3.4" \$S0
-        seg \$S0 141  "󰲒 v9.8" \$S0
+        seg \$S0 141  " v9.8" \$S0
         seg \$S0 215  " v0.13" ""
         segend \$S0
 cursor "_"
@@ -333,65 +333,65 @@ print ""
 
 print "  \033[38;5;240m  Docker context active\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 loubot" \$BL
-        seg \$BL \$FG "󰘬 main" \$GR
-        seg \$GR \$FG "󰌠 v3.12" \$S0
-        seg \$S0 111  "󰡨 desktop-linux" ""
+        seg \$PK \$FG " loubot" \$BL
+        seg \$BL \$FG " main" \$GR
+        seg \$GR \$FG " v3.12" \$S0
+        seg \$S0 111  " desktop-linux" ""
         segend \$S0
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  Kubernetes context\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 k8s-app" \$BL
-        seg \$BL \$FG "󰘬 main" \$GR
-        seg \$GR \$FG "󰌠 v3.12" \$S0
-        seg \$S0 111  "󱃾 prod [default]" ""
+        seg \$PK \$FG " k8s-app" \$BL
+        seg \$BL \$FG " main" \$GR
+        seg \$GR \$FG " v3.12" \$S0
+        seg \$S0 111  " prod [default]" ""
         segend \$S0
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  AWS profile\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 infra" \$BL
-        seg \$BL \$FG "󰘬 main" \$S0
-        seg \$S0 215  "󰸏 prod [us-east-1]" ""
+        seg \$PK \$FG " infra" \$BL
+        seg \$BL \$FG " main" \$S0
+        seg \$S0 215  " prod [us-east-1]" ""
         segend \$S0
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  GCP project\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 infra" \$S0
-        seg \$S0 111  "󱇶 my-project [us-central1]" ""
+        seg \$PK \$FG " infra" \$S0
+        seg \$S0 111  " my-project [us-central1]" ""
         segend \$S0
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  Azure subscription\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 infra" \$S0
-        seg \$S0 111  "󰠅 my-subscription" ""
+        seg \$PK \$FG " infra" \$S0
+        seg \$S0 111  " my-subscription" ""
         segend \$S0
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  Terraform workspace\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 terraform" \$BL
-        seg \$BL \$FG "󰘬 main" \$S0
-        seg \$S0 141  "󱁢 staging" ""
+        seg \$PK \$FG " terraform" \$BL
+        seg \$BL \$FG " main" \$S0
+        seg \$S0 141  " staging" ""
         segend \$S0
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  Conda env + package version\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 ml-project" \$BL
-        seg \$BL \$FG "󰘬 main" \$GR
-        seg \$GR \$FG "󰌠 v3.12" \$S0
-        seg \$S0 114  "󰏗 myenv" \$S0
-        seg \$S0 215  "󰏗 v0.1.0" ""
+        seg \$PK \$FG " ml-project" \$BL
+        seg \$BL \$FG " main" \$GR
+        seg \$GR \$FG " v3.12" \$S0
+        seg \$S0 114  " myenv" \$S0
+        seg \$S0 215  " v0.1.0" ""
         segend \$S0
 cursor "_"
 print ""
@@ -404,34 +404,34 @@ banner "5d — Right side: command duration + clock"
 print ""
 print "  \033[38;5;240m  Normal command (no duration shown < 500ms)\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 loubot" \$BL
-        seg \$BL \$FG "󰘬 main" \$GR
-        seg \$GR \$FG "󰌠 v3.12" ""
+        seg \$PK \$FG " loubot" \$BL
+        seg \$BL \$FG " main" \$GR
+        seg \$GR \$FG " v3.12" ""
         segend \$GR
 printf "                          "
-print "\033[38;5;245m󰥔 22:31\033[0m"
+print "\033[38;5;245m 22:31\033[0m"
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  Long command (duration shown ≥ 500ms)\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 loubot" \$BL
-        seg \$BL \$FG "󰘬 main" \$GR
-        seg \$GR \$FG "󰌠 v3.12" ""
+        seg \$PK \$FG " loubot" \$BL
+        seg \$BL \$FG " main" \$GR
+        seg \$GR \$FG " v3.12" ""
         segend \$GR
 printf "           "
-print "\033[38;5;229m󱎫 12s342ms\033[0m  \033[38;5;245m󰥔 22:31\033[0m"
+print "\033[38;5;229m 12s342ms\033[0m  \033[38;5;245m 22:31\033[0m"
 cursor "_"
 print ""
 
 print "  \033[38;5;240m  Error exit (prompt turns red)\033[0m"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 loubot" \$BL
-        seg \$BL \$FG "󰘬 main" \$GR
-        seg \$GR \$FG "󰌠 v3.12" ""
+        seg \$PK \$FG " loubot" \$BL
+        seg \$BL \$FG " main" \$GR
+        seg \$GR \$FG " v3.12" ""
         segend \$GR
 printf "                          "
-print "\033[38;5;245m󰥔 22:31\033[0m"
+print "\033[38;5;245m 22:31\033[0m"
 print "  \033[38;5;203m❯\033[0m _"
 print ""
 pause
@@ -456,11 +456,11 @@ print "  \033[38;5;240m  Python + git — Latte\033[0m"
 prompt
 printf "\033[48;5;135m\033[38;5;255m  dangnguyen \033[0m"
 printf "\033[38;5;135m\033[48;5;170m\033[0m"
-printf "\033[48;5;170m\033[38;5;255m 󰉋 loubot \033[0m"
+printf "\033[48;5;170m\033[38;5;255m  loubot \033[0m"
 printf "\033[38;5;170m\033[48;5;27m\033[0m"
-printf "\033[48;5;27m\033[38;5;255m 󰘬 main \033[0m"
+printf "\033[48;5;27m\033[38;5;255m  main \033[0m"
 printf "\033[38;5;27m\033[48;5;34m\033[0m"
-printf "\033[48;5;34m\033[38;5;255m 󰌠 v3.12 \033[0m"
+printf "\033[48;5;34m\033[38;5;255m  v3.12 \033[0m"
 printf "\033[38;5;34m\033[0m"
 print ""
 print "  \033[38;5;34m❯\033[0m _"
@@ -470,13 +470,13 @@ print "  \033[38;5;240m  Docker + AWS — Latte\033[0m"
 prompt
 printf "\033[48;5;135m\033[38;5;255m  dangnguyen \033[0m"
 printf "\033[38;5;135m\033[48;5;170m\033[0m"
-printf "\033[48;5;170m\033[38;5;255m 󰉋 infra \033[0m"
+printf "\033[48;5;170m\033[38;5;255m  infra \033[0m"
 printf "\033[38;5;170m\033[48;5;27m\033[0m"
-printf "\033[48;5;27m\033[38;5;255m 󰘬 main \033[0m"
+printf "\033[48;5;27m\033[38;5;255m  main \033[0m"
 printf "\033[38;5;27m\033[48;5;252m\033[0m"
-printf "\033[48;5;252m\033[38;5;27m 󰡨 desktop \033[0m"
+printf "\033[48;5;252m\033[38;5;27m  desktop \033[0m"
 printf "\033[38;5;252m\033[48;5;252m\033[0m"
-printf "\033[48;5;252m\033[38;5;202m 󰸏 prod \033[0m"
+printf "\033[48;5;252m\033[38;5;202m  prod \033[0m"
 printf "\033[38;5;252m\033[0m"
 print ""
 print "  \033[38;5;34m❯\033[0m _"
@@ -492,9 +492,9 @@ print ""
 cursor "\033[38;5;229mcd ~/projects/loubot\033[0m"
 print ""
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 loubot" \$BL
-        seg \$BL \$FG "󰘬 release" \$GR
-        seg \$GR \$FG "󰌠 v3.11" ""
+        seg \$PK \$FG " loubot" \$BL
+        seg \$BL \$FG " release" \$GR
+        seg \$GR \$FG " v3.11" ""
         segend \$GR
 cursor "\033[38;5;229mls -a\033[0m"
 print "  \033[38;5;116m.git\033[0m         \033[38;5;229mDockerfile\033[0m    \033[38;5;114mloubot\033[0m       \033[38;5;203mscripts\033[0m"
@@ -515,12 +515,12 @@ cursor "\033[38;5;229mpython --version\033[0m"
 print "  Python 3.11.8"
 print ""
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 loubot" \$BL
-        seg \$BL \$FG "󰘬 release" \$GR
-        seg \$GR \$FG "󰌠 v3.11" ""
+        seg \$PK \$FG " loubot" \$BL
+        seg \$BL \$FG " release" \$GR
+        seg \$GR \$FG " v3.11" ""
         segend \$GR
 printf "                "
-print "\033[38;5;229m󱎫 42ms\033[0m  \033[38;5;245m󰥔 22:31\033[0m"
+print "\033[38;5;229m 42ms\033[0m  \033[38;5;245m 22:31\033[0m"
 cursor "_"
 print ""
 pause
@@ -535,18 +535,18 @@ print ""
 
 # Style B helpers — fg only, no bg
 sb_user()  { printf "\033[38;5;141m  \$1\033[0m"; }         # mauve
-sb_dir()   { printf "  \033[38;5;218m󰉋 \$1\033[0m"; }       # pink
-sb_git()   { printf "  \033[38;5;111m󰘬 \$1\033[0m"; }       # blue
-sb_py()    { printf "  \033[38;5;114m󰌠 \$1\033[0m"; }       # green
-sb_node()  { printf "  \033[38;5;116m󰎙 \$1\033[0m"; }       # teal
-sb_rust()  { printf "  \033[38;5;215m󱘗 \$1\033[0m"; }       # peach
-sb_go()    { printf "  \033[38;5;116m󰟓 \$1\033[0m"; }       # sky/teal
-sb_java()  { printf "  \033[38;5;229m󰬷 \$1\033[0m"; }       # yellow
-sb_docker(){ printf "  \033[38;5;111m󰡨 \$1\033[0m"; }       # blue
-sb_k8s()   { printf "  \033[38;5;111m󱃾 \$1\033[0m"; }       # blue
-sb_aws()   { printf "  \033[38;5;215m󰸏 \$1\033[0m"; }       # peach
-sb_dur()   { printf "  \033[38;5;229m󱎫 \$1\033[0m"; }       # yellow
-sb_time()  { printf "  \033[38;5;245m󰥔 \$1\033[0m"; }       # subtext
+sb_dir()   { printf "  \033[38;5;218m \$1\033[0m"; }       # pink
+sb_git()   { printf "  \033[38;5;111m \$1\033[0m"; }       # blue
+sb_py()    { printf "  \033[38;5;114m \$1\033[0m"; }       # green
+sb_node()  { printf "  \033[38;5;116m \$1\033[0m"; }       # teal
+sb_rust()  { printf "  \033[38;5;215m \$1\033[0m"; }       # peach
+sb_go()    { printf "  \033[38;5;116m \$1\033[0m"; }       # sky/teal
+sb_java()  { printf "  \033[38;5;229m \$1\033[0m"; }       # yellow
+sb_docker(){ printf "  \033[38;5;111m \$1\033[0m"; }       # blue
+sb_k8s()   { printf "  \033[38;5;111m \$1\033[0m"; }       # blue
+sb_aws()   { printf "  \033[38;5;215m \$1\033[0m"; }       # peach
+sb_dur()   { printf "  \033[38;5;229m \$1\033[0m"; }       # yellow
+sb_time()  { printf "  \033[38;5;245m \$1\033[0m"; }       # subtext
 sb_nl_ok() { printf "\n  \033[38;5;114m❯\033[0m "; }        # green ❯
 sb_nl_err(){ printf "\n  \033[38;5;203m❯\033[0m "; }        # red ❯
 
@@ -555,12 +555,12 @@ printf "  "; sb_user "dangnguyen"; sb_dir "~/projects"; sb_git "main"; sb_nl_ok;
 
 print "  \${C_DIM}  git: modified + untracked\${C_RST}"
 printf "  "; sb_user "dangnguyen"; sb_dir "loubot"
-printf "  \033[38;5;111m󰘬 main  \033[38;5;215m󰏭 󰋗\033[0m"
+printf "  \033[38;5;111m main  \033[38;5;215m \033[0m"
 sb_nl_ok; print "_\n"
 
 print "  \${C_DIM}  git: staged + ahead of remote\${C_RST}"
 printf "  "; sb_user "dangnguyen"; sb_dir "loubot"
-printf "  \033[38;5;111m󰘬 main  \033[38;5;114m󰐕  \033[38;5;229m󰜷2\033[0m"
+printf "  \033[38;5;111m main  \033[38;5;114m  \033[38;5;229m2\033[0m"
 sb_nl_ok; print "_\n"
 
 print "  \${C_DIM}  Python + Node.js\${C_RST}"
@@ -573,8 +573,8 @@ sb_py "v3.12"; sb_rust "v1.77"; sb_go "v1.22"; sb_nl_ok; print "_\n"
 
 print "  \${C_DIM}  Java + Ruby + Swift\${C_RST}"
 printf "  "; sb_user "dangnguyen"; sb_dir "spring-app"; sb_git "main"; sb_java "v21"
-printf "  \033[38;5;203m󰴭 v3.3\033[0m"
-printf "  \033[38;5;215m󰛥 v5.10\033[0m"
+printf "  \033[38;5;203m v3.3\033[0m"
+printf "  \033[38;5;215m v5.10\033[0m"
 sb_nl_ok; print "_\n"
 
 print "  \${C_DIM}  Docker + Kubernetes + AWS\${C_RST}"
@@ -600,9 +600,9 @@ banner "Style comparison"
 print ""
 print "  \${C_MAUVE}\${C_BOLD}Style A — Powerline (solid backgrounds):\${C_RST}"
 prompt; seg \$M \$FG "  dangnguyen" \$PK
-        seg \$PK \$FG "󰉋 loubot" \$BL
-        seg \$BL \$FG "󰘬 main" \$GR
-        seg \$GR \$FG "󰌠 v3.12" ""
+        seg \$PK \$FG " loubot" \$BL
+        seg \$BL \$FG " main" \$GR
+        seg \$GR \$FG " v3.12" ""
         segend \$GR
 print ""
 print ""
